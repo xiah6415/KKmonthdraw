@@ -112,7 +112,7 @@ function Register() {
 
   return (
     <div className="container">
-      <h1>月月繪 建檔系統</h1>
+      <h1>月月繪</h1>
 
       {discordUser && (
         <p>👋 你好，<strong>{getDisplayName(discordUser)}</strong>！</p>
