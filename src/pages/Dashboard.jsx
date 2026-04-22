@@ -109,7 +109,12 @@ function Dashboard() {
         init()
     }, [])
 
-    if (loading) return <div className="container"><p>載入中...</p></div>
+    if (loading) return (
+  <div className="container" style={{ textAlign: 'center' }}>
+    <h1>月月繪</h1>
+    <p style={{ color: '#5865F2', marginTop: '20px' }}>⏳ 正在載入你的紀錄...</p>
+  </div>
+)
     if (error) return <div className="container"><p style={{ color: 'red' }}>{error}</p></div>
 
     return (
