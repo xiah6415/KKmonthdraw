@@ -50,7 +50,7 @@ function Dashboard() {
 
         if (recordsRes.data.success) {
           if (recordsRes.data.records.length === 0) {
-            navigate('/register?code=' + code)
+         navigate('/register', { state: { discordUser: user } })
           } else {
             setRecords(recordsRes.data.records)
           }
