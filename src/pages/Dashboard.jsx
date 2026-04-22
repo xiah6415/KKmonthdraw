@@ -6,6 +6,7 @@ function Dashboard() {
   const [records, setRecords] = useState([])
   const [discordUser, setDiscordUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -19,7 +20,6 @@ function Dashboard() {
 
     const init = async () => {
       try {
-        // 先取得 Discord 使用者資訊
         const userRes = await axios.get(import.meta.env.VITE_APPS_SCRIPT_URL, {
           params: {
             action: 'getDiscordUser',
@@ -29,9 +29,15 @@ function Dashboard() {
         })
 
         const user = userRes.data
+        console.log('user:', JSON.stringify(user))
+
+        if (user.error) {
+          setError('Discord 登入失敗：' + user.error)
+          return
+        }
+
         setDiscordUser(user)
 
-        // 用 Discord ID 查詢 Notion 紀錄
         const recordsRes = await axios.get(import.meta.env.VITE_APPS_SCRIPT_URL, {
           params: {
             action: 'getUserRecords',
@@ -40,17 +46,20 @@ function Dashboard() {
           }
         })
 
+        console.log('records:', JSON.stringify(recordsRes.data))
+
         if (recordsRes.data.success) {
           if (recordsRes.data.records.length === 0) {
-            // 沒有紀錄，導向建檔頁面
             navigate('/register?code=' + code)
           } else {
             setRecords(recordsRes.data.records)
           }
+        } else {
+          setError('查詢紀錄失敗：' + JSON.stringify(recordsRes.data))
         }
       } catch (err) {
-        console.error(err)
-        navigate('/')
+        console.error('Dashboard error:', err.message)
+        setError('發生錯誤：' + err.message)
       } finally {
         setLoading(false)
       }
@@ -65,6 +74,8 @@ function Dashboard() {
   }
 
   if (loading) return <div className="container"><p>載入中...</p></div>
+
+  if (error) return <div className="container"><p style={{ color: 'red' }}>{error}</p></div>
 
   return (
     <div className="container">
