@@ -88,7 +88,7 @@ function Register() {
         }
       })
       if (res.data.success) {
-        alert(`建檔成功！\n資料夾名稱：${res.data.folderName}\n連結：${res.data.folderUrl}`)
+        alert(JSON.stringify(res.data))
       } else {
         alert('建檔失敗：' + res.data.error)
       }
