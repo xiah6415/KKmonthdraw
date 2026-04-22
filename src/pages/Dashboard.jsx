@@ -79,13 +79,13 @@ function Dashboard() {
 
   return (
     <div className="container">
-      <h1>月月繪 建檔系統</h1>
+      <h1>月月繪</h1>
 
       {discordUser && (
         <p>👋 你好，<strong>{getDisplayName(discordUser)}</strong>！</p>
       )}
 
-      <h2 style={{ fontSize: '18px', color: '#333' }}>我的建檔紀錄</h2>
+      <h2 style={{ fontSize: '18px', color: '#333' }}>我的月月繪紀錄</h2>
 
       {records.map((record, index) => (
         <div key={index} style={{
