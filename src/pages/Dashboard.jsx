@@ -112,7 +112,7 @@ function Dashboard() {
           )}
 
           <p style={{ margin: 0, color: '#999', fontSize: '12px' }}>
-           建立時間：{record.createdTime ? new Date(record.createdTime).toLocaleDateString('zh-TW') : '未知'}
+          建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
           </p>
 
           <a href={record.folderUrl} target="_blank" rel="noreferrer">
