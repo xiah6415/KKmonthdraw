@@ -284,6 +284,14 @@ function Register() {
       <button onClick={handleSubmit} disabled={submitting} className="btn-submit">
         {submitting ? <><span className="btn-spinner" /> 建檔中...</> : '送出建檔'}
       </button>
+
+      {/* 使用說明 */}
+      <button
+        onClick={() => navigate('/help')}
+        style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
+      >
+        ? 使用說明
+      </button>
     </div>
   )
 }

@@ -214,6 +214,12 @@ function Dashboard() {
           🎨 參加者
         </button>
       </div>
+      <button
+        onClick={() => navigate('/help')}
+        style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
+      >
+        ? 使用說明
+      </button>
     </div>
   )
 
@@ -368,6 +374,14 @@ function Dashboard() {
           🛠️ 進入管理員後台
         </button>
       )}
+
+      {/* 使用說明 */}
+      <button
+        onClick={() => navigate('/help')}
+        style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
+      >
+        ? 使用說明
+      </button>
 
       {/* 登出 */}
       <button
