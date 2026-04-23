@@ -22,6 +22,9 @@ function Admin() {
   // 所有紀錄
   const [allRecords, setAllRecords] = useState([])
   const [loadingRecords, setLoadingRecords] = useState(false)
+  const [filterPeriod, setFilterPeriod] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -145,6 +148,29 @@ function Admin() {
 
   const getDisplayName = (user) => user?.global_name || user?.username || user?.id || ''
 
+  // ── 篩選邏輯 ───────────────────────────────────────────
+  const periods = [...new Set(allRecords.map(r => r.period))].sort()
+
+  const filteredRecords = allRecords.filter(rec => {
+    if (filterPeriod && rec.period !== filterPeriod) return false
+    if (filterType && rec.type !== filterType) return false
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
+      const team = (rec.teamName || '').toLowerCase()
+      const id = (rec.discordId || '').toLowerCase()
+      if (!name.includes(q) && !team.includes(q) && !id.includes(q)) return false
+    }
+    return true
+  })
+
+  const statsByPeriod = periods.map(p => ({
+    period: p,
+    total: allRecords.filter(r => r.period === p).length,
+    team: allRecords.filter(r => r.period === p && r.type === '團體').length,
+    personal: allRecords.filter(r => r.period === p && r.type === '個人').length,
+  }))
+
   // ── Loading ────────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -267,7 +293,7 @@ function Admin() {
             disabled={loadingRecords}
             style={{ fontSize: 12, padding: '6px 12px' }}
           >
-            {loadingRecords ? '載入中...' : '載入紀錄'}
+            {loadingRecords ? '載入中...' : allRecords.length > 0 ? '重新載入' : '載入紀錄'}
           </button>
         </div>
 
@@ -277,31 +303,111 @@ function Admin() {
           </p>
         ) : (
           <>
-            <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>共 {allRecords.length} 筆</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {allRecords.map((rec, i) => (
-                <div key={i} className="record-card" style={{ gap: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
-                    <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
-                      {rec.type}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
-                    {rec.serverNickname || rec.discordName}
-                    {rec.teamName && ` ／ ${rec.teamName}`}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
-                    Discord: {rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
-                  </p>
-                  {rec.googleAccounts && (
-                    <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
-                      📧 {Array.isArray(rec.googleAccounts) ? rec.googleAccounts.join(', ') : rec.googleAccounts}
-                    </p>
-                  )}
+            {/* 每期統計 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+              {statsByPeriod.map(s => (
+                <div key={s.period} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: '#f8f9ff', border: '1px solid #e8e9ff',
+                  borderRadius: 8, padding: '7px 12px', fontSize: 13
+                }}>
+                  <span style={{ fontWeight: 'bold', color: '#5865F2' }}>{s.period}</span>
+                  <span style={{ color: '#666' }}>
+                    共 <strong>{s.total}</strong> 筆
+                    　個人 <strong>{s.personal}</strong>
+                    　團體 <strong>{s.team}</strong>
+                  </span>
                 </div>
               ))}
             </div>
+
+            {/* 期數篩選 tabs */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              <button
+                onClick={() => setFilterPeriod('')}
+                style={{
+                  fontSize: 12, padding: '5px 12px',
+                  background: filterPeriod === '' ? '#5865F2' : '#f0f0f0',
+                  color: filterPeriod === '' ? 'white' : '#555'
+                }}
+              >全部</button>
+              {periods.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setFilterPeriod(p)}
+                  style={{
+                    fontSize: 12, padding: '5px 12px',
+                    background: filterPeriod === p ? '#5865F2' : '#f0f0f0',
+                    color: filterPeriod === p ? 'white' : '#555'
+                  }}
+                >{p}</button>
+              ))}
+            </div>
+
+            {/* 類型篩選 + 搜尋 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['', '個人', '團體'].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setFilterType(t)}
+                    style={{
+                      fontSize: 12, padding: '6px 12px',
+                      background: filterType === t
+                        ? (t === '團體' ? '#2ecc71' : t === '個人' ? '#5865F2' : '#555')
+                        : '#f0f0f0',
+                      color: filterType === t ? 'white' : '#555'
+                    }}
+                  >{t === '' ? '全類型' : t}</button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="搜尋暱稱、隊伍、Discord ID"
+                style={{ margin: 0, flex: 1, minWidth: 160, fontSize: 13 }}
+              />
+            </div>
+
+            {/* 結果數 */}
+            <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
+              顯示 {filteredRecords.length} / {allRecords.length} 筆
+            </p>
+
+            {/* 紀錄列表 */}
+            {filteredRecords.length === 0 ? (
+              <p style={{ color: '#bbb', fontSize: 13, textAlign: 'center' }}>沒有符合條件的紀錄</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filteredRecords.map((rec, i) => (
+                  <div key={i} className="record-card" style={{ gap: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
+                      <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
+                        {rec.type}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
+                      {rec.serverNickname || rec.discordName}
+                      {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
+                      Discord: {rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
+                    </p>
+                    {rec.googleAccounts && rec.googleAccounts.length > 0 && (
+                      <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
+                        📧 {Array.isArray(rec.googleAccounts) ? rec.googleAccounts.join(', ') : rec.googleAccounts}
+                      </p>
+                    )}
+                    {rec.folderUrl && (
+                      <a href={rec.folderUrl} target="_blank" rel="noreferrer"
+                        style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
