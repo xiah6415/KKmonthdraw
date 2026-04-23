@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create .env
+        run: |
+          echo "VITE_DISCORD_CLIENT_ID=${{ secrets.VITE_DISCORD_CLIENT_ID }}" >> .env
+          echo "VITE_REDIRECT_URI=${{ secrets.VITE_REDIRECT_URI }}" >> .env
+          echo "VITE_APPS_SCRIPT_URL=${{ secrets.VITE_APPS_SCRIPT_URL }}" >> .env
+          echo "VITE_NOTION_TOKEN=${{ secrets.VITE_NOTION_TOKEN }}" >> .env
+          echo "VITE_NOTION_DATABASE_ID=${{ secrets.VITE_NOTION_DATABASE_ID }}" >> .env
+          echo "VITE_API_SECRET=${{ secrets.VITE_API_SECRET }}" >> .env
+
+      - name: Build
+        run: npm run build
+        
+      - name: Copy index.html to 404.html
+        run: cp dist/index.html dist/404.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
