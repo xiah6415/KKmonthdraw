@@ -13,9 +13,10 @@ function Admin() {
   const [saving, setSaving] = useState(false)
   const [periodMsg, setPeriodMsg] = useState(null) // { type, text }
 
-  // 管理員名單
-  const [adminIds, setAdminIds] = useState([])
+  // 管理員名單（每筆為 { id, name }）
+  const [adminList, setAdminList] = useState([])
   const [newAdminId, setNewAdminId] = useState('')
+  const [newAdminName, setNewAdminName] = useState('')
   const [adminLoading, setAdminLoading] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
 
@@ -55,7 +56,7 @@ function Admin() {
       const period = periodRes.data.currentPeriod || ''
       setCurrentPeriod(period)
       setNewPeriod(period)
-      setAdminIds(adminRes.data.adminIds || [])
+      setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -91,8 +92,9 @@ function Admin() {
   // ── 管理員名單 ─────────────────────────────────────────
   const handleAddAdmin = async () => {
     const id = newAdminId.trim()
+    const name = newAdminName.trim()
     if (!id) return
-    if (adminIds.includes(id)) {
+    if (adminList.some(a => a.id === id)) {
       setAdminMsg({ type: 'error', text: '此 ID 已在名單中' })
       return
     }
@@ -100,12 +102,13 @@ function Admin() {
     setAdminMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'addAdminId', discordId: id, secret: SECRET }
+        params: { action: 'addAdminId', discordId: id, adminName: name, secret: SECRET }
       })
       if (res.data.success) {
-        setAdminIds([...adminIds, id])
+        setAdminList([...adminList, { id, name }])
         setNewAdminId('')
-        setAdminMsg({ type: 'success', text: `已新增 ${id}` })
+        setNewAdminName('')
+        setAdminMsg({ type: 'success', text: `已新增 ${name || id}` })
       } else {
         setAdminMsg({ type: 'error', text: '新增失敗：' + (res.data.error || '未知') })
       }
@@ -116,8 +119,8 @@ function Admin() {
     }
   }
 
-  const handleRemoveAdmin = async (id) => {
-    if (!confirm(`確定要移除管理員 ${id} 嗎？`)) return
+  const handleRemoveAdmin = async (id, name) => {
+    if (!confirm(`確定要移除管理員「${name || id}」嗎？`)) return
     setAdminLoading(true)
     setAdminMsg(null)
     try {
@@ -125,8 +128,8 @@ function Admin() {
         params: { action: 'removeAdminId', discordId: id, secret: SECRET }
       })
       if (res.data.success) {
-        setAdminIds(adminIds.filter(a => a !== id))
-        setAdminMsg({ type: 'success', text: `已移除 ${id}` })
+        setAdminList(adminList.filter(a => a.id !== id))
+        setAdminMsg({ type: 'success', text: `已移除 ${name || id}` })
       } else {
         setAdminMsg({ type: 'error', text: '移除失敗：' + (res.data.error || '未知') })
       }
@@ -290,21 +293,26 @@ function Admin() {
         <h2 className="admin-section-title">👑 管理員名單</h2>
 
         {/* 現有管理員 */}
-        {adminIds.length === 0 ? (
-          <p style={{ color: '#bbb', fontSize: 13 }}>目前沒有其他管理員</p>
+        {adminList.length === 0 ? (
+          <p style={{ color: '#bbb', fontSize: 13, marginBottom: 12 }}>目前沒有其他管理員</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-            {adminIds.map((id) => (
+            {adminList.map(({ id, name }) => (
               <div key={id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: '#f8f8f8', border: '1px solid #eee',
+                background: '#f8f9ff', border: '1px solid #e8e9ff',
                 borderRadius: 8, padding: '8px 12px'
               }}>
-                <span style={{ fontSize: 13, fontFamily: 'monospace', color: '#444' }}>{id}</span>
+                <div>
+                  {name && (
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: '#333' }}>{name}</p>
+                  )}
+                  <p style={{ margin: 0, fontSize: 11, fontFamily: 'monospace', color: '#888' }}>{id}</p>
+                </div>
                 <button
                   className="btn-remove"
                   style={{ fontSize: 11, padding: '4px 10px' }}
-                  onClick={() => handleRemoveAdmin(id)}
+                  onClick={() => handleRemoveAdmin(id, name)}
                   disabled={adminLoading}
                 >
                   移除
@@ -315,25 +323,34 @@ function Admin() {
         )}
 
         {/* 新增管理員 */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input
             type="text"
-            value={newAdminId}
-            onChange={(e) => setNewAdminId(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddAdmin()}
-            placeholder="貼上 Discord ID（純數字）"
-            style={{ margin: 0, flex: 1 }}
+            value={newAdminName}
+            onChange={(e) => setNewAdminName(e.target.value)}
+            placeholder="顯示名稱（例：小明）"
+            style={{ margin: 0 }}
           />
-          <button
-            onClick={handleAddAdmin}
-            disabled={adminLoading || !newAdminId.trim()}
-            style={{ whiteSpace: 'nowrap', padding: '10px 16px', background: '#2ecc71' }}
-          >
-            {adminLoading ? '處理中...' : '新增'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={newAdminId}
+              onChange={(e) => setNewAdminId(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddAdmin()}
+              placeholder="Discord ID（純數字）"
+              style={{ margin: 0, flex: 1 }}
+            />
+            <button
+              onClick={handleAddAdmin}
+              disabled={adminLoading || !newAdminId.trim()}
+              style={{ whiteSpace: 'nowrap', padding: '10px 16px', background: '#2ecc71' }}
+            >
+              {adminLoading ? '處理中...' : '新增'}
+            </button>
+          </div>
         </div>
         <p style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>
-          Discord ID 可在 Discord 開啟開發者模式後，對使用者右鍵點選「複製 ID」取得
+          Discord ID：Discord 開啟開發者模式後，對使用者右鍵 → 複製 ID
         </p>
         {adminMsg && (
           <p style={{
