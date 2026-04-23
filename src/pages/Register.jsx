@@ -109,6 +109,7 @@ function Register() {
           teamName: teamName.trim(),
           discordId: discordUser.id,
           discordName: getDisplayName(discordUser),
+          discordUsername: discordUser.username || '',
           serverNickname: serverNickname.trim(),
           googleAccounts: googleAccounts.filter(a => a.trim() !== '').join(','),
           secret: SECRET

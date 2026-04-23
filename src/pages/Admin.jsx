@@ -365,7 +365,7 @@ function Admin() {
       {/* ── 所有建檔紀錄 ── */}
       <div className="admin-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 className="admin-section-title" style={{ margin: 0 }}>📋 所有建檔紀錄</h2>
+          <h2 className="admin-section-title" style={{ margin: 0 }}>📋 月月繪參加者資料</h2>
           <button
             onClick={fetchAllRecords}
             disabled={loadingRecords}
@@ -563,7 +563,7 @@ function Admin() {
                             {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
                           </p>
                           <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
-                            Discord: {rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
+                            {rec.username ? `@${rec.username}` : rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
                           </p>
                           {rec.googleAccounts && rec.googleAccounts.length > 0 && (
                             <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
