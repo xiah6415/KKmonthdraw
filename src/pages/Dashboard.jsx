@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
+import ActivityInfo from '../components/ActivityInfo'
 
 const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 const SECRET = import.meta.env.VITE_API_SECRET
@@ -9,6 +10,8 @@ function Dashboard() {
   const [records, setRecords] = useState([])
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -18,6 +21,8 @@ function Dashboard() {
   const [editAccounts, setEditAccounts] = useState([])
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState(null)
+  // 回報上傳
+  const [reportingIndex, setReportingIndex] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -49,7 +54,6 @@ function Dashboard() {
         const storedUser = getUserFromStorage()
 
         if (storedUser) {
-          // ── 已有 cache：單次請求取 records + currentPeriod ──
           setDiscordUser(storedUser)
           const res = await axios.get(API_URL, {
             params: {
@@ -64,6 +68,8 @@ function Dashboard() {
           }
           const period = res.data.currentPeriod || ''
           setCurrentPeriod(period)
+          setStartDate(res.data.startDate || '')
+          setEndDate(res.data.endDate || '')
           if (res.data.records.length === 0) {
             navigate('/register', {
               state: { discordUser: storedUser, currentPeriod: period, records: [] }
@@ -75,7 +81,6 @@ function Dashboard() {
           return
         }
 
-        // ── 全新登入：合併兩個請求為一個 initDashboard ──
         const params = new URLSearchParams(window.location.search)
         const code = params.get('code')
         if (!code) {
@@ -98,6 +103,8 @@ function Dashboard() {
 
         setDiscordUser(user)
         setCurrentPeriod(period)
+        setStartDate(res.data.startDate || '')
+        setEndDate(res.data.endDate || '')
         saveUserToStorage(user)
 
         if (recs.length === 0) {
@@ -173,6 +180,32 @@ function Dashboard() {
     }
   }
 
+  // ── 回報完成上傳 ──────────────────────────────────────
+  const handleReport = async (index, record) => {
+    if (record.reportStatus === '已完成') return
+    setReportingIndex(index)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'updateReportStatus',
+          discordId: discordUser.id,
+          period: record.period,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        const reportTime = res.data.reportTime || new Date().toISOString()
+        setRecords(prev => prev.map((r, i) =>
+          i === index ? { ...r, reportStatus: '已完成', reportTime } : r
+        ))
+      }
+    } catch (err) {
+      console.error('回報失敗：', err.message)
+    } finally {
+      setReportingIndex(null)
+    }
+  }
+
   // ── Loading ───────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -199,6 +232,7 @@ function Dashboard() {
           </p>
         )}
       </div>
+      <ActivityInfo startDate={startDate} endDate={endDate} />
       <p style={{ textAlign: 'center', color: '#888', fontSize: 14 }}>請選擇本次要以哪個身分進入</p>
       <div style={{ display: 'flex', gap: 12 }}>
         <button
@@ -234,6 +268,9 @@ function Dashboard() {
           </p>
         )}
       </div>
+
+      {/* 活動資訊 */}
+      <ActivityInfo startDate={startDate} endDate={endDate} />
 
       {/* 本期尚未建檔提示 */}
       {currentPeriod && !isRegisteredForCurrentPeriod() && (
@@ -351,6 +388,26 @@ function Dashboard() {
                   </button>
                 </div>
               )
+            )}
+
+            {/* 回報完成上傳 */}
+            {record.reportStatus === '已完成' ? (
+              <div className="report-done">
+                ✅ 已回報
+                {record.reportTime && (
+                  <span className="report-done-time">
+                    ・{record.reportTime.split('T')[0]}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                className="btn-report"
+                onClick={() => handleReport(index, record)}
+                disabled={reportingIndex === index}
+              >
+                {reportingIndex === index ? '回報中...' : '✅ 回報完成上傳'}
+              </button>
             )}
 
             <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>

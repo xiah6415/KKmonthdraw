@@ -9,11 +9,13 @@ function Admin() {
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
   const [newPeriod, setNewPeriod] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [periodMsg, setPeriodMsg] = useState(null) // { type, text }
+  const [periodMsg, setPeriodMsg] = useState(null)
 
-  // 管理員名單（每筆為 { id, name }）
+  // 管理員名單
   const [adminList, setAdminList] = useState([])
   const [newAdminId, setNewAdminId] = useState('')
   const [newAdminName, setNewAdminName] = useState('')
@@ -25,20 +27,24 @@ function Admin() {
   const [loadingRecords, setLoadingRecords] = useState(false)
   const [filterPeriod, setFilterPeriod] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [filterReport, setFilterReport] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   // 管理員編輯紀錄
-  const [editingKey, setEditingKey] = useState(null) // 'discordId_period'
+  const [editingKey, setEditingKey] = useState(null)
   const [editDraft, setEditDraft] = useState({})
   const [editSaving, setEditSaving] = useState(false)
   const [editMsg, setEditMsg] = useState(null)
+
+  // 匯出
+  const [exporting, setExporting] = useState(false)
+  const [exportMsg, setExportMsg] = useState(null)
 
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
     const user = location.state?.discordUser
-    // 只允許從 Dashboard 帶著 isAdmin:true 進來
     if (!user || !location.state?.isAdmin) {
       navigate('/')
       return
@@ -56,6 +62,8 @@ function Admin() {
       const period = periodRes.data.currentPeriod || ''
       setCurrentPeriod(period)
       setNewPeriod(period)
+      setStartDate(periodRes.data.startDate || '')
+      setEndDate(periodRes.data.endDate || '')
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
@@ -74,7 +82,13 @@ function Admin() {
     setPeriodMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriod', period: newPeriod.trim(), secret: SECRET }
+        params: {
+          action: 'setPeriod',
+          period: newPeriod.trim(),
+          startDate,
+          endDate,
+          secret: SECRET
+        }
       })
       if (res.data.success) {
         setCurrentPeriod(newPeriod.trim())
@@ -163,6 +177,8 @@ function Admin() {
   const filteredRecords = allRecords.filter(rec => {
     if (filterPeriod && rec.period !== filterPeriod) return false
     if (filterType && rec.type !== filterType) return false
+    if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
+    if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
       const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
@@ -173,6 +189,26 @@ function Admin() {
     return true
   })
 
+  // ── 統計 ───────────────────────────────────────────────
+  const getReportStats = (recs) => ({
+    done: recs.filter(r => r.reportStatus === '已完成').length,
+    pending: recs.filter(r => r.reportStatus !== '已完成').length,
+  })
+
+  const statsByPeriod = periods.map(p => {
+    const recs = allRecords.filter(r => r.period === p)
+    const { done, pending } = getReportStats(recs)
+    return {
+      period: p,
+      total: recs.length,
+      team: recs.filter(r => r.type === '團體').length,
+      personal: recs.filter(r => r.type === '個人').length,
+      done,
+      pending,
+    }
+  })
+
+  // ── 編輯紀錄 ───────────────────────────────────────────
   const startEditRecord = (rec) => {
     const key = `${rec.discordId}_${rec.period}`
     setEditingKey(key)
@@ -228,12 +264,29 @@ function Admin() {
     }
   }
 
-  const statsByPeriod = periods.map(p => ({
-    period: p,
-    total: allRecords.filter(r => r.period === p).length,
-    team: allRecords.filter(r => r.period === p && r.type === '團體').length,
-    personal: allRecords.filter(r => r.period === p && r.type === '個人').length,
-  }))
+  // ── 匯出 Google 試算表 ─────────────────────────────────
+  const handleExport = async () => {
+    setExporting(true)
+    setExportMsg(null)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'exportToSheet',
+          period: filterPeriod || currentPeriod,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setExportMsg({ type: 'success', url: res.data.sheetUrl, text: '匯出成功！' })
+      } else {
+        setExportMsg({ type: 'error', text: '匯出失敗：' + (res.data.error || '未知') })
+      }
+    } catch {
+      setExportMsg({ type: 'error', text: '匯出失敗，請再試一次' })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // ── Loading ────────────────────────────────────────────
   if (loading) return (
@@ -262,7 +315,8 @@ function Admin() {
         <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
           目前期數：<strong style={{ color: '#5865F2' }}>{currentPeriod || '（未設定）'}</strong>
         </p>
-        <div style={{ display: 'flex', gap: 8 }}>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <input
             type="text"
             value={newPeriod}
@@ -272,12 +326,39 @@ function Admin() {
           />
           <button
             onClick={handleSavePeriod}
-            disabled={saving || newPeriod.trim() === currentPeriod}
+            disabled={saving}
             style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
           >
             {saving ? '儲存中...' : '更新'}
           </button>
         </div>
+
+        {/* 活動日期 */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動開始</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              style={{ margin: 0, fontSize: 13 }}
+            />
+          </div>
+          <span style={{ color: '#aaa', marginTop: 18 }}>～</span>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動截止</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={{ margin: 0, fontSize: 13 }}
+            />
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
+          設定後前台會顯示倒數計時，截止日當天 23:59 截止。
+        </p>
+
         {periodMsg && (
           <p style={{
             marginTop: 8, fontSize: 13, fontWeight: 'bold',
@@ -292,7 +373,6 @@ function Admin() {
       <div className="admin-section">
         <h2 className="admin-section-title">👑 管理員名單</h2>
 
-        {/* 現有管理員 */}
         {adminList.length === 0 ? (
           <p style={{ color: '#bbb', fontSize: 13, marginBottom: 12 }}>目前沒有其他管理員</p>
         ) : (
@@ -322,7 +402,6 @@ function Admin() {
           </div>
         )}
 
-        {/* 新增管理員 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input
             type="text"
@@ -366,14 +445,43 @@ function Admin() {
       <div className="admin-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 className="admin-section-title" style={{ margin: 0 }}>📋 月月繪參加者資料</h2>
-          <button
-            onClick={fetchAllRecords}
-            disabled={loadingRecords}
-            style={{ fontSize: 12, padding: '6px 12px' }}
-          >
-            {loadingRecords ? '載入中...' : allRecords.length > 0 ? '重新載入' : '載入紀錄'}
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {allRecords.length > 0 && (
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                style={{ fontSize: 12, padding: '6px 12px', background: '#27ae60' }}
+              >
+                {exporting ? '匯出中...' : '📊 匯出名單'}
+              </button>
+            )}
+            <button
+              onClick={fetchAllRecords}
+              disabled={loadingRecords}
+              style={{ fontSize: 12, padding: '6px 12px' }}
+            >
+              {loadingRecords ? '載入中...' : allRecords.length > 0 ? '重新載入' : '載入紀錄'}
+            </button>
+          </div>
         </div>
+
+        {/* 匯出訊息 */}
+        {exportMsg && (
+          <div style={{
+            marginBottom: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13,
+            background: exportMsg.type === 'success' ? '#e8f9f0' : '#fff0f0',
+            border: `1px solid ${exportMsg.type === 'success' ? '#b2ecd0' : '#ffcccc'}`,
+            color: exportMsg.type === 'success' ? '#27ae60' : '#c0392b'
+          }}>
+            {exportMsg.text}
+            {exportMsg.url && (
+              <a href={exportMsg.url} target="_blank" rel="noreferrer"
+                style={{ marginLeft: 8, color: '#5865F2', fontWeight: 'bold' }}>
+                開啟試算表 →
+              </a>
+            )}
+          </div>
+        )}
 
         {allRecords.length === 0 ? (
           <p style={{ color: '#bbb', fontSize: 13, textAlign: 'center' }}>
@@ -385,16 +493,21 @@ function Admin() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
               {statsByPeriod.map(s => (
                 <div key={s.period} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   background: '#f8f9ff', border: '1px solid #e8e9ff',
-                  borderRadius: 8, padding: '7px 12px', fontSize: 13
+                  borderRadius: 8, padding: '8px 12px', fontSize: 13
                 }}>
-                  <span style={{ fontWeight: 'bold', color: '#5865F2' }}>{s.period}</span>
-                  <span style={{ color: '#666' }}>
-                    共 <strong>{s.total}</strong> 筆
-                    　個人 <strong>{s.personal}</strong>
-                    　團體 <strong>{s.team}</strong>
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: '#5865F2' }}>{s.period}</span>
+                    <span style={{ color: '#666' }}>
+                      共 <strong>{s.total}</strong> 筆
+                      　個人 <strong>{s.personal}</strong>
+                      　團體 <strong>{s.team}</strong>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 4, fontSize: 12 }}>
+                    <span style={{ color: '#27ae60' }}>✅ 已回報 <strong>{s.done}</strong></span>
+                    <span style={{ color: '#aaa' }}>⏳ 未回報 <strong>{s.pending}</strong></span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -422,8 +535,8 @@ function Admin() {
               ))}
             </div>
 
-            {/* 類型篩選 + 搜尋 */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            {/* 類型篩選 + 回報篩選 + 搜尋 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 6 }}>
                 {['', '個人', '團體'].map(t => (
                   <button
@@ -448,6 +561,32 @@ function Admin() {
               />
             </div>
 
+            {/* 回報狀態篩選 */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {[['', '全部'], ['已回報', '✅ 已回報'], ['未回報', '⏳ 未回報']].map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setFilterReport(val)}
+                  style={{
+                    fontSize: 12, padding: '6px 12px',
+                    background: filterReport === val
+                      ? (val === '已回報' ? '#27ae60' : val === '未回報' ? '#e8b046' : '#555')
+                      : '#f0f0f0',
+                    color: filterReport === val ? 'white' : '#555'
+                  }}
+                >{label}</button>
+              ))}
+
+              {/* 即時統計 */}
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', alignSelf: 'center' }}>
+                {(() => {
+                  const base = allRecords.filter(r => (!filterPeriod || r.period === filterPeriod))
+                  const { done, pending } = getReportStats(base)
+                  return `✅ ${done} / ⏳ ${pending}`
+                })()}
+              </span>
+            </div>
+
             {/* 結果數 */}
             <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
               顯示 {filteredRecords.length} / {allRecords.length} 筆
@@ -470,6 +609,10 @@ function Admin() {
                           <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
                             {rec.type}
                           </span>
+                          {rec.reportStatus === '已完成'
+                            ? <span className="report-badge--done">✅ 已回報</span>
+                            : <span className="report-badge--pending">⏳ 未回報</span>
+                          }
                         </div>
                         {!isEditing && (
                           <button className="btn-edit" onClick={() => startEditRecord(rec)}>編輯</button>
@@ -477,7 +620,6 @@ function Admin() {
                       </div>
 
                       {isEditing ? (
-                        /* ── 編輯模式 ── */
                         <div className="edit-section">
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             <div>
@@ -556,7 +698,6 @@ function Admin() {
                           </div>
                         </div>
                       ) : (
-                        /* ── 檢視模式 ── */
                         <>
                           <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
                             {rec.serverNickname || rec.discordName}
@@ -568,6 +709,11 @@ function Admin() {
                           {rec.googleAccounts && rec.googleAccounts.length > 0 && (
                             <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
                               📧 {rec.googleAccounts.join(', ')}
+                            </p>
+                          )}
+                          {rec.reportTime && (
+                            <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
+                              ✅ 回報時間：{rec.reportTime.split('T')[0]}
                             </p>
                           )}
                           {rec.folderUrl && (
