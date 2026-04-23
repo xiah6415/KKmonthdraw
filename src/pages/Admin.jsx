@@ -26,6 +26,12 @@ function Admin() {
   const [filterType, setFilterType] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
+  // 管理員編輯紀錄
+  const [editingKey, setEditingKey] = useState(null) // 'discordId_period'
+  const [editDraft, setEditDraft] = useState({})
+  const [editSaving, setEditSaving] = useState(false)
+  const [editMsg, setEditMsg] = useState(null)
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -163,6 +169,61 @@ function Admin() {
     }
     return true
   })
+
+  const startEditRecord = (rec) => {
+    const key = `${rec.discordId}_${rec.period}`
+    setEditingKey(key)
+    setEditMsg(null)
+    setEditDraft({
+      serverNickname: rec.serverNickname || '',
+      teamName: rec.teamName || '',
+      googleAccounts: rec.googleAccounts?.length > 0 ? [...rec.googleAccounts] : [''],
+      type: rec.type || '個人'
+    })
+  }
+
+  const cancelEditRecord = () => {
+    setEditingKey(null)
+    setEditDraft({})
+    setEditMsg(null)
+  }
+
+  const saveEditRecord = async (rec) => {
+    const accounts = editDraft.googleAccounts.filter(a => a.trim() !== '')
+    if (accounts.length === 0) {
+      setEditMsg({ type: 'error', text: '至少需要一個 Google 帳號' })
+      return
+    }
+    setEditSaving(true)
+    setEditMsg(null)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'adminUpdateRecord',
+          discordId: rec.discordId,
+          period: rec.period,
+          serverNickname: editDraft.serverNickname.trim(),
+          teamName: editDraft.teamName.trim(),
+          googleAccounts: accounts.join(','),
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setAllRecords(prev => prev.map(r =>
+          r.discordId === rec.discordId && r.period === rec.period
+            ? { ...r, serverNickname: editDraft.serverNickname.trim(), teamName: editDraft.teamName.trim(), googleAccounts: accounts }
+            : r
+        ))
+        cancelEditRecord()
+      } else {
+        setEditMsg({ type: 'error', text: '儲存失敗：' + (res.data.error || '未知') })
+      }
+    } catch {
+      setEditMsg({ type: 'error', text: '儲存失敗，請再試一次' })
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   const statsByPeriod = periods.map(p => ({
     period: p,
@@ -380,32 +441,127 @@ function Admin() {
               <p style={{ color: '#bbb', fontSize: 13, textAlign: 'center' }}>沒有符合條件的紀錄</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {filteredRecords.map((rec, i) => (
-                  <div key={i} className="record-card" style={{ gap: 4 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
-                      <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
-                        {rec.type}
-                      </span>
+                {filteredRecords.map((rec, i) => {
+                  const key = `${rec.discordId}_${rec.period}`
+                  const isEditing = editingKey === key
+                  return (
+                    <div key={i} className="record-card" style={{ gap: 6 }}>
+                      {/* 標頭列 */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
+                          <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
+                            {rec.type}
+                          </span>
+                        </div>
+                        {!isEditing && (
+                          <button className="btn-edit" onClick={() => startEditRecord(rec)}>編輯</button>
+                        )}
+                      </div>
+
+                      {isEditing ? (
+                        /* ── 編輯模式 ── */
+                        <div className="edit-section">
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div>
+                              <label className="form-label" style={{ fontSize: 12 }}>伺服器暱稱</label>
+                              <input
+                                type="text"
+                                value={editDraft.serverNickname}
+                                onChange={e => setEditDraft(d => ({ ...d, serverNickname: e.target.value }))}
+                                style={{ marginTop: 4 }}
+                              />
+                            </div>
+                            {rec.type === '團體' && (
+                              <div>
+                                <label className="form-label" style={{ fontSize: 12 }}>隊伍名稱</label>
+                                <input
+                                  type="text"
+                                  value={editDraft.teamName}
+                                  onChange={e => setEditDraft(d => ({ ...d, teamName: e.target.value }))}
+                                  style={{ marginTop: 4 }}
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <label className="form-label" style={{ fontSize: 12 }}>Google 帳號</label>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                {editDraft.googleAccounts.map((acc, ai) => (
+                                  <div key={ai} className="account-row">
+                                    <input
+                                      type="email"
+                                      value={acc}
+                                      onChange={e => {
+                                        const next = [...editDraft.googleAccounts]
+                                        next[ai] = e.target.value
+                                        setEditDraft(d => ({ ...d, googleAccounts: next }))
+                                      }}
+                                      style={{ margin: 0 }}
+                                      placeholder="example@gmail.com"
+                                    />
+                                    {editDraft.googleAccounts.length > 1 && (
+                                      <button
+                                        className="btn-remove"
+                                        onClick={() => setEditDraft(d => ({
+                                          ...d,
+                                          googleAccounts: d.googleAccounts.filter((_, j) => j !== ai)
+                                        }))}
+                                      >✕</button>
+                                    )}
+                                  </div>
+                                ))}
+                                <button
+                                  className="btn-add"
+                                  onClick={() => setEditDraft(d => ({ ...d, googleAccounts: [...d.googleAccounts, ''] }))}
+                                >+ 新增帳號</button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {editMsg && (
+                            <p style={{ fontSize: 12, color: editMsg.type === 'error' ? '#e74c3c' : '#2ecc71', margin: '4px 0 0' }}>
+                              {editMsg.text}
+                            </p>
+                          )}
+
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                            <button
+                              style={{ flex: 1, background: '#2ecc71', fontSize: 13, padding: '8px' }}
+                              onClick={() => saveEditRecord(rec)}
+                              disabled={editSaving}
+                            >
+                              {editSaving ? '儲存中...' : '儲存'}
+                            </button>
+                            <button
+                              style={{ flex: 1, background: '#aaa', fontSize: 13, padding: '8px' }}
+                              onClick={cancelEditRecord}
+                            >取消</button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* ── 檢視模式 ── */
+                        <>
+                          <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
+                            {rec.serverNickname || rec.discordName}
+                            {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
+                            Discord: {rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
+                          </p>
+                          {rec.googleAccounts && rec.googleAccounts.length > 0 && (
+                            <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
+                              📧 {rec.googleAccounts.join(', ')}
+                            </p>
+                          )}
+                          {rec.folderUrl && (
+                            <a href={rec.folderUrl} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
+                          )}
+                        </>
+                      )}
                     </div>
-                    <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
-                      {rec.serverNickname || rec.discordName}
-                      {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
-                      Discord: {rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
-                    </p>
-                    {rec.googleAccounts && rec.googleAccounts.length > 0 && (
-                      <p style={{ margin: 0, fontSize: 11, color: '#999' }}>
-                        📧 {Array.isArray(rec.googleAccounts) ? rec.googleAccounts.join(', ') : rec.googleAccounts}
-                      </p>
-                    )}
-                    {rec.folderUrl && (
-                      <a href={rec.folderUrl} target="_blank" rel="noreferrer"
-                        style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>
