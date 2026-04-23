@@ -206,6 +206,29 @@ function Dashboard() {
     }
   }
 
+  const handleCancelReport = async (index, record) => {
+    setReportingIndex(index)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'cancelReportStatus',
+          discordId: discordUser.id,
+          period: record.period,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setRecords(prev => prev.map((r, i) =>
+          i === index ? { ...r, reportStatus: '', reportTime: '' } : r
+        ))
+      }
+    } catch (err) {
+      console.error('取消回報失敗：', err.message)
+    } finally {
+      setReportingIndex(null)
+    }
+  }
+
   // ── Loading ───────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -390,15 +413,24 @@ function Dashboard() {
               )
             )}
 
-            {/* 回報完成上傳 */}
+            {/* 已上傳作業回報 */}
             {record.reportStatus === '已完成' ? (
-              <div className="report-done">
-                ✅ 已回報
-                {record.reportTime && (
-                  <span className="report-done-time">
-                    ・{record.reportTime.split('T')[0]}
-                  </span>
-                )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="report-done" style={{ flex: 1 }}>
+                  ✅ 通知成功
+                  {record.reportTime && (
+                    <span className="report-done-time">
+                      ・{record.reportTime.split('T')[0]}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleCancelReport(index, record)}
+                  disabled={reportingIndex === index}
+                  style={{ background: 'transparent', color: '#aaa', border: '1px solid #ddd', fontSize: 12, padding: '6px 10px', flexShrink: 0 }}
+                >
+                  取消
+                </button>
               </div>
             ) : (
               <button
@@ -406,7 +438,7 @@ function Dashboard() {
                 onClick={() => handleReport(index, record)}
                 disabled={reportingIndex === index}
               >
-                {reportingIndex === index ? '回報中...' : '✅ 回報完成上傳'}
+                {reportingIndex === index ? '通知中...' : '已上傳作業'}
               </button>
             )}
 
