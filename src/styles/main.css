@@ -19,7 +19,7 @@ body {
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 h1 {
@@ -36,6 +36,12 @@ input {
   margin-top: 6px;
 }
 
+input:focus {
+  outline: none;
+  border-color: #5865F2;
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.12);
+}
+
 button {
   padding: 10px 20px;
   border: none;
@@ -44,20 +50,28 @@ button {
   font-size: 14px;
   background-color: #5865F2;
   color: white;
+  transition: opacity 0.15s;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 button.active {
   background-color: #3b4fc4;
 }
 
-button:hover {
-  opacity: 0.9;
-}
-
 label {
   font-size: 14px;
   font-weight: bold;
 }
+
+/* ── Spinner ──────────────────────────────────────────── */
 .spinner {
   width: 40px;
   height: 40px;
@@ -70,4 +84,360 @@ label {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ── Register: 標題列 ──────────────────────────────────── */
+.register-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.period-badge {
+  background: #5865F2;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* ── Register: 使用者問候 ──────────────────────────────── */
+.user-greeting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8f8ff;
+  border: 1px solid #e8e9ff;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.greeting-name {
+  font-weight: bold;
+  font-size: 15px;
+  color: #333;
+}
+
+.greeting-sub {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+/* ── 錯誤訊息 ──────────────────────────────────────────── */
+.error-banner {
+  background: #fff0f0;
+  border: 1px solid #ffcccc;
+  color: #c0392b;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+/* ── 表單區塊 ──────────────────────────────────────────── */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.form-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #444;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.label-icon {
+  font-size: 15px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+/* ── 參加類型切換 ──────────────────────────────────────── */
+.type-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  background: #f0f0f0;
+  color: #555;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 8px;
+}
+
+.toggle-btn.active {
+  background: #5865F2;
+  color: white;
+}
+
+/* ── Google 帳號欄位 ───────────────────────────────────── */
+.google-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.account-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.account-row input {
+  margin-top: 0;
+  flex: 1;
+}
+
+.btn-remove {
+  background: #e74c3c;
+  padding: 10px 12px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.btn-add {
+  background: transparent;
+  color: #2ecc71;
+  border: 1px dashed #2ecc71;
+  font-size: 13px;
+  padding: 8px;
+  width: 100%;
+}
+
+.btn-add:hover:not(:disabled) {
+  background: #f0fff4;
+  opacity: 1;
+}
+
+/* ── 送出按鈕 ──────────────────────────────────────────── */
+.btn-submit {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #888;
+  border: 1px solid #ddd;
+  width: 100%;
+  font-size: 13px;
+}
+
+/* ── 結果卡片（成功/已建檔） ───────────────────────────── */
+.result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  text-align: center;
+}
+
+.result-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: #f0f0f0;
+  color: #aaa;
+}
+
+.result-icon--success {
+  background: #e8f9f0;
+  color: #2ecc71;
+  font-size: 28px;
+}
+
+.result-card h2 {
+  font-size: 20px;
+  color: #333;
+}
+
+.result-sub {
+  color: #888;
+  font-size: 13px;
+}
+
+.result-period {
+  background: #5865F2;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 4px 14px;
+  border-radius: 20px;
+}
+
+.result-folder-name {
+  font-size: 14px;
+  color: #555;
+  word-break: break-all;
+}
+
+.folder-link-btn {
+  display: block;
+  width: 100%;
+  background: #5865F2;
+  color: white;
+  text-decoration: none;
+  padding: 13px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  transition: opacity 0.15s;
+}
+
+.folder-link-btn:hover {
+  opacity: 0.88;
+}
+
+/* ── Dashboard: 本期建檔 CTA ────────────────────────────── */
+.cta-banner {
+  background: linear-gradient(135deg, #5865F2, #7c84f5);
+  color: white;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cta-title {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.cta-sub {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.cta-btn {
+  background: white;
+  color: #5865F2;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+/* ── Dashboard: 紀錄卡片 ────────────────────────────────── */
+.record-card {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.current-badge {
+  background: #5865F2;
+  color: white;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.type-badge {
+  color: white;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.type-badge--team { background: #2ecc71; }
+.type-badge--personal { background: #5865F2; }
+
+/* ── Dashboard: 編輯區塊 ────────────────────────────────── */
+.edit-section {
+  background: #f8f8f8;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #555;
+  margin: 0;
+}
+
+.edit-error {
+  color: #e74c3c;
+  font-size: 12px;
+  margin: 0;
+}
+
+.btn-edit {
+  background: transparent;
+  color: #5865F2;
+  border: 1px solid #5865F2;
+  font-size: 11px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+/* ── Admin: 區塊 ─────────────────────────────────────────── */
+.admin-section {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.admin-section-title {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 12px;
 }
