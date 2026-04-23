@@ -50,9 +50,31 @@ const steps = [
   },
   {
     icon: '4',
+    title: '回報完成上傳',
+    content: (
+      <>
+        <p>作品上傳完畢後，在 Dashboard 的紀錄卡片上點擊「已上傳作業」按鈕，通知管理員你已完成上傳。</p>
+        <div className="help-field">
+          <span className="help-field-label">✅ 通知成功</span>
+          <span className="help-field-desc">按下後按鈕會變成「通知成功」並顯示回報時間，代表已成功通知。</span>
+        </div>
+        <div className="help-field">
+          <span className="help-field-label">↩️ 取消回報</span>
+          <span className="help-field-desc">若不小心誤按，可點旁邊的「取消」按鈕撤銷回報狀態。</span>
+        </div>
+        <p className="help-tip">回報狀態會同步顯示在管理員後台，讓管理員掌握上傳進度。</p>
+      </>
+    )
+  },
+  {
+    icon: '5',
     title: 'Dashboard 功能',
     content: (
       <>
+        <div className="help-field">
+          <span className="help-field-label">📅 活動資訊</span>
+          <span className="help-field-desc">頁面上方會顯示本期活動期間，以及距離截止日的倒數計時（天／小時／分）。截止後會顯示「活動已結束」。</span>
+        </div>
         <div className="help-field">
           <span className="help-field-label">📋 歷期紀錄</span>
           <span className="help-field-desc">登入後可查看你每一期的建檔紀錄與資料夾連結。</span>
@@ -86,6 +108,14 @@ const faqs = [
   {
     q: '個人和團體的差別？',
     a: '個人建立一個屬於自己的資料夾。團體則以隊伍名稱建立，可以新增多位隊員的 Google 帳號，讓所有人都能存取同一個資料夾。'
+  },
+  {
+    q: '已上傳作業後可以取消嗎？',
+    a: '可以。在「通知成功」旁邊有「取消」按鈕，點擊即可撤銷回報狀態，之後可以重新回報。'
+  },
+  {
+    q: '倒數計時消失或顯示「活動已結束」怎麼辦？',
+    a: '代表本期截止日已過，若仍需上傳請聯繫管理員確認是否延期。'
   }
 ]
 
