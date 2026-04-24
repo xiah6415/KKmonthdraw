@@ -113,14 +113,33 @@ function Admin() {
   }
 
   // ── 封面圖上傳 ─────────────────────────────────────────
+  const compressImage = (file) => new Promise((resolve) => {
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      img.onload = () => {
+        const MAX = 1200
+        let w = img.width, h = img.height
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX }
+        const canvas = document.createElement('canvas')
+        canvas.width = w; canvas.height = h
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+        canvas.toBlob(resolve, 'image/jpeg', 0.82)
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+
   const handleCoverUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
     setCoverUploading(true)
     setCoverMsg(null)
     try {
+      const compressed = await compressImage(file)
       const storageRef = ref(storage, 'covers/cover')
-      await uploadBytes(storageRef, file)
+      await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
       const res = await axios.get(API_URL, {
