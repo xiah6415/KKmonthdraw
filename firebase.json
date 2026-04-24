@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "kkmonth-2026",
+    "site": "kkmonth",
     "public": "dist",
     "ignore": [
       "firebase.json",
