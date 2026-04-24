@@ -12,6 +12,7 @@ function Home() {
     const scope = encodeURIComponent('identify')
     const navigate = useNavigate()
     const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '' })
+    const [coverImageUrl, setCoverImageUrl] = useState('')
 
     useEffect(() => {
         axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
@@ -21,6 +22,7 @@ function Home() {
                         startDate: res.data.startDate || '',
                         endDate: res.data.endDate || ''
                     })
+                    setCoverImageUrl(res.data.coverImageUrl || '')
                 }
             })
             .catch(() => {})
@@ -33,6 +35,9 @@ function Home() {
     return (
         <div className="container">
             <h1>月月繪</h1>
+            {coverImageUrl && (
+                <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
+            )}
             <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} />
             <p>請用 Discord 登入</p>
             <button onClick={handleDiscordLogin}>
