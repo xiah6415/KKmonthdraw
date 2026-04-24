@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
+import { storage } from '../firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 const SECRET = import.meta.env.VITE_API_SECRET
@@ -36,6 +38,11 @@ function Admin() {
   const [editSaving, setEditSaving] = useState(false)
   const [editMsg, setEditMsg] = useState(null)
 
+  // 封面圖
+  const [coverImageUrl, setCoverImageUrl] = useState('')
+  const [coverUploading, setCoverUploading] = useState(false)
+  const [coverMsg, setCoverMsg] = useState(null)
+
   // 匯出
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState(null)
@@ -64,6 +71,7 @@ function Admin() {
       setNewPeriod(period)
       setStartDate(periodRes.data.startDate || '')
       setEndDate(periodRes.data.endDate || '')
+      setCoverImageUrl(periodRes.data.coverImageUrl || '')
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
@@ -87,6 +95,7 @@ function Admin() {
           period: newPeriod.trim(),
           startDate,
           endDate,
+          coverImageUrl,
           secret: SECRET
         }
       })
@@ -100,6 +109,32 @@ function Admin() {
       setPeriodMsg({ type: 'error', text: '更新失敗，請再試一次' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ── 封面圖上傳 ─────────────────────────────────────────
+  const handleCoverUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setCoverUploading(true)
+    setCoverMsg(null)
+    try {
+      const storageRef = ref(storage, 'covers/cover')
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      setCoverImageUrl(url)
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, coverImageUrl: url, secret: SECRET }
+      })
+      if (res.data.success) {
+        setCoverMsg({ type: 'success', text: '封面圖已更新' })
+      } else {
+        setCoverMsg({ type: 'error', text: '圖片上傳成功但儲存網址失敗' })
+      }
+    } catch (err) {
+      setCoverMsg({ type: 'error', text: '上傳失敗：' + err.message })
+    } finally {
+      setCoverUploading(false)
     }
   }
 
@@ -367,6 +402,27 @@ function Admin() {
             {periodMsg.type === 'success' ? '✓ ' : '✕ '}{periodMsg.text}
           </p>
         )}
+
+        {/* 封面圖 */}
+        <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 14 }}>
+          <label style={{ fontSize: 13, fontWeight: 'bold', color: '#555', display: 'block', marginBottom: 8 }}>🖼️ 封面圖</label>
+          {coverImageUrl && (
+            <img src={coverImageUrl} alt="封面預覽" style={{ width: '100%', borderRadius: 8, marginBottom: 10, display: 'block' }} />
+          )}
+          <label style={{
+            display: 'inline-block', padding: '8px 16px', borderRadius: 8,
+            background: coverUploading ? '#ccc' : '#5865F2', color: 'white',
+            cursor: coverUploading ? 'not-allowed' : 'pointer', fontSize: 13
+          }}>
+            {coverUploading ? '上傳中...' : coverImageUrl ? '換一張' : '上傳封面圖'}
+            <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={coverUploading} style={{ display: 'none' }} />
+          </label>
+          {coverMsg && (
+            <p style={{ marginTop: 6, fontSize: 13, fontWeight: 'bold', color: coverMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+              {coverMsg.type === 'success' ? '✓ ' : '✕ '}{coverMsg.text}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* ── 管理員名單 ── */}
@@ -738,6 +794,12 @@ function Admin() {
           style={{ background: 'transparent', color: '#5865F2', border: '1px solid #5865F2', fontSize: 13 }}
         >
           切換為參加者模式
+        </button>
+        <button
+          onClick={() => navigate('/help')}
+          style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', fontSize: 13 }}
+        >
+          ? 使用說明
         </button>
         <button
           onClick={() => { localStorage.removeItem('discordUser'); navigate('/') }}

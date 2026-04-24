@@ -5,6 +5,7 @@ import ActivityInfo from '../components/ActivityInfo'
 
 const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 const SECRET = import.meta.env.VITE_API_SECRET
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
 function Dashboard() {
   const [records, setRecords] = useState([])
@@ -12,6 +13,7 @@ function Dashboard() {
   const [currentPeriod, setCurrentPeriod] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [coverImageUrl, setCoverImageUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -70,6 +72,7 @@ function Dashboard() {
           setCurrentPeriod(period)
           setStartDate(res.data.startDate || '')
           setEndDate(res.data.endDate || '')
+          setCoverImageUrl(res.data.coverImageUrl || '')
           if (res.data.records.length === 0) {
             navigate('/register', {
               state: { discordUser: storedUser, currentPeriod: period, records: [] }
@@ -89,7 +92,7 @@ function Dashboard() {
         }
 
         const res = await axios.get(API_URL, {
-          params: { action: 'initDashboard', code, secret: SECRET }
+          params: { action: 'initDashboard', code, secret: SECRET, redirect_uri: REDIRECT_URI }
         })
 
         if (res.data.error) {
@@ -105,6 +108,7 @@ function Dashboard() {
         setCurrentPeriod(period)
         setStartDate(res.data.startDate || '')
         setEndDate(res.data.endDate || '')
+        setCoverImageUrl(res.data.coverImageUrl || '')
         saveUserToStorage(user)
 
         if (recs.length === 0) {
@@ -255,6 +259,9 @@ function Dashboard() {
           </p>
         )}
       </div>
+      {coverImageUrl && (
+        <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
+      )}
       <ActivityInfo startDate={startDate} endDate={endDate} />
       <p style={{ textAlign: 'center', color: '#888', fontSize: 14 }}>請選擇本次要以哪個身分進入</p>
       <div style={{ display: 'flex', gap: 12 }}>
@@ -292,7 +299,10 @@ function Dashboard() {
         )}
       </div>
 
-      {/* 活動資訊 */}
+      {/* 封面圖 + 活動資訊 */}
+      {coverImageUrl && (
+        <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
+      )}
       <ActivityInfo startDate={startDate} endDate={endDate} />
 
       {/* 本期尚未建檔提示 */}

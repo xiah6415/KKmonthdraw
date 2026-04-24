@@ -35,7 +35,7 @@ jobs:
           echo "VITE_API_SECRET=${{ secrets.VITE_API_SECRET }}" >> .env
 
       - name: Build
-        run: npm run build
+        run: npm run build -- --mode github
         
       - name: Copy index.html to 404.html
         run: cp dist/index.html dist/404.html

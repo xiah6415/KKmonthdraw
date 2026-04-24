@@ -4,6 +4,7 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 const SECRET = import.meta.env.VITE_API_SECRET
+const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
 function Register() {
   const [discordUser, setDiscordUser] = useState(null)
@@ -46,7 +47,7 @@ function Register() {
         }
 
         const res = await axios.get(API_URL, {
-          params: { action: 'getDiscordUser', code, secret: SECRET }
+          params: { action: 'getDiscordUser', code, secret: SECRET, redirect_uri: REDIRECT_URI }
         })
         if (res.data.error) {
           navigate('/')
@@ -150,6 +151,12 @@ function Register() {
         <button onClick={() => navigate('/dashboard', { state: { discordUser } })}>
           返回 Dashboard
         </button>
+        <button
+          onClick={() => navigate('/help')}
+          style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
+        >
+          ? 使用說明
+        </button>
       </div>
     </div>
   )
@@ -175,6 +182,12 @@ function Register() {
           onClick={() => navigate('/dashboard', { state: { discordUser } })}
         >
           返回 Dashboard
+        </button>
+        <button
+          onClick={() => navigate('/help')}
+          style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
+        >
+          ? 使用說明
         </button>
       </div>
     </div>
