@@ -18,9 +18,10 @@ function Dashboard() {
   const [error, setError] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [roleSelection, setRoleSelection] = useState(false)
-  // 編輯 Google 帳號用
+  // 編輯紀錄用
   const [editingIndex, setEditingIndex] = useState(null)
   const [editAccounts, setEditAccounts] = useState([])
+  const [editNickname, setEditNickname] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState(null)
   // 回報上傳
@@ -141,6 +142,7 @@ function Dashboard() {
       ? (Array.isArray(rec.googleAccounts) ? rec.googleAccounts : rec.googleAccounts.split(','))
       : ['']
     setEditAccounts(accounts.map(a => a.trim()))
+    setEditNickname(rec.serverNickname || '')
     setEditingIndex(index)
     setEditError(null)
   }
@@ -148,6 +150,7 @@ function Dashboard() {
   const cancelEdit = () => {
     setEditingIndex(null)
     setEditAccounts([])
+    setEditNickname('')
     setEditError(null)
   }
 
@@ -166,12 +169,13 @@ function Dashboard() {
           discordId: discordUser.id,
           period: record.period,
           googleAccounts: filtered.join(','),
+          serverNickname: editNickname.trim(),
           secret: SECRET
         }
       })
       if (res.data.success) {
         setRecords(prev => prev.map((r, i) =>
-          i === editingIndex ? { ...r, googleAccounts: filtered } : r
+          i === editingIndex ? { ...r, googleAccounts: filtered, serverNickname: editNickname.trim() } : r
         ))
         cancelEdit()
       } else {
@@ -349,6 +353,9 @@ function Dashboard() {
               </span>
             </div>
 
+            {record.serverNickname && (
+              <p style={{ margin: 0, color: '#555', fontSize: 14 }}>👤 {record.serverNickname}</p>
+            )}
             {record.teamName && (
               <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
             )}
@@ -360,7 +367,18 @@ function Dashboard() {
             {/* 編輯 Google 帳號（展開區域） */}
             {editingIndex === index ? (
               <div className="edit-section">
-                <p className="edit-title">📧 修改 Google 帳號</p>
+                <p className="edit-title">✏️ 修改資料</p>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>伺服器暱稱</label>
+                  <input
+                    type="text"
+                    value={editNickname}
+                    onChange={(e) => setEditNickname(e.target.value)}
+                    placeholder="你在伺服器的暱稱"
+                    style={{ margin: 0 }}
+                  />
+                </div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
                 {editAccounts.map((acc, i) => (
                   <div key={i} className="account-row">
                     <input
