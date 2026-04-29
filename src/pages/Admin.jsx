@@ -30,7 +30,12 @@ function Admin() {
   const [filterPeriod, setFilterPeriod] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterReport, setFilterReport] = useState('')
+  const [filterBasic, setFilterBasic] = useState('')
+  const [filterAdvanced, setFilterAdvanced] = useState('')
+  const [filterReflection, setFilterReflection] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
 
   // 管理員編輯紀錄
   const [editingKey, setEditingKey] = useState(null)
@@ -239,28 +244,46 @@ function Admin() {
   // ── 篩選邏輯 ───────────────────────────────────────────
   const periods = [...new Set(allRecords.map(r => r.period))].sort()
 
-  const filteredRecords = allRecords.filter(rec => {
-    if (filterPeriod && rec.period !== filterPeriod) return false
-    if (filterType && rec.type !== filterType) return false
-    if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
-    if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
-      const team = (rec.teamName || '').toLowerCase()
-      const id = (rec.discordId || '').toLowerCase()
-      if (!name.includes(q) && !team.includes(q) && !id.includes(q)) return false
-    }
-    return true
-  })
+  const filteredRecords = allRecords
+    .filter(rec => {
+      if (filterPeriod && rec.period !== filterPeriod) return false
+      if (filterType && rec.type !== filterType) return false
+      if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
+      if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
+        const team = (rec.teamName || '').toLowerCase()
+        const id = (rec.discordId || '').toLowerCase()
+        if (!name.includes(q) && !team.includes(q) && !id.includes(q)) return false
+      }
+      if (filterBasic || filterAdvanced || filterReflection) {
+        const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
+        if (filterBasic === 'done'    && sub?.basic !== true)       return false
+        if (filterBasic === 'missing' && sub?.basic !== false)      return false
+        if (filterAdvanced === 'done'    && sub?.advanced !== true)    return false
+        if (filterAdvanced === 'missing' && sub?.advanced !== false)   return false
+        if (filterReflection === 'done'    && sub?.reflection !== true)  return false
+        if (filterReflection === 'missing' && sub?.reflection !== false) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      const tA = a.createdTime || ''
+      const tB = b.createdTime || ''
+      return sortOrder === 'desc' ? tB.localeCompare(tA) : tA.localeCompare(tB)
+    })
 
   const recordTotalPages = Math.ceil(filteredRecords.length / PAGE_SIZE)
   const pagedRecords = filteredRecords.slice(recordPage * PAGE_SIZE, (recordPage + 1) * PAGE_SIZE)
 
-  const setFilterPeriodAndReset = (v) => { setFilterPeriod(v); setRecordPage(0) }
-  const setFilterTypeAndReset   = (v) => { setFilterType(v);   setRecordPage(0) }
-  const setFilterReportAndReset = (v) => { setFilterReport(v); setRecordPage(0) }
-  const setSearchQueryAndReset  = (v) => { setSearchQuery(v);  setRecordPage(0) }
+  const setFilterPeriodAndReset     = (v) => { setFilterPeriod(v);     setRecordPage(0) }
+  const setFilterTypeAndReset       = (v) => { setFilterType(v);       setRecordPage(0) }
+  const setFilterReportAndReset     = (v) => { setFilterReport(v);     setRecordPage(0) }
+  const setFilterBasicAndReset      = (v) => { setFilterBasic(v);      setRecordPage(0) }
+  const setFilterAdvancedAndReset   = (v) => { setFilterAdvanced(v);   setRecordPage(0) }
+  const setFilterReflectionAndReset = (v) => { setFilterReflection(v); setRecordPage(0) }
+  const setSearchQueryAndReset      = (v) => { setSearchQuery(v);      setRecordPage(0) }
 
   // ── 統計 ───────────────────────────────────────────────
   const getReportStats = (recs) => ({
@@ -686,8 +709,8 @@ function Admin() {
               ))}
             </div>
 
-            {/* 期數篩選 tabs */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+            {/* 期數篩選 tabs — 常駐 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               <button
                 onClick={() => setFilterPeriodAndReset('')}
                 style={{
@@ -709,23 +732,8 @@ function Admin() {
               ))}
             </div>
 
-            {/* 類型篩選 + 回報篩選 + 搜尋 */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {['', '個人', '團體'].map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setFilterTypeAndReset(t)}
-                    style={{
-                      fontSize: 12, padding: '6px 12px',
-                      background: filterType === t
-                        ? (t === '團體' ? '#2ecc71' : t === '個人' ? '#5865F2' : '#555')
-                        : '#f0f0f0',
-                      color: filterType === t ? 'white' : '#555'
-                    }}
-                  >{t === '' ? '全類型' : t}</button>
-                ))}
-              </div>
+            {/* 搜尋欄 + 展開收合 — 常駐 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <input
                 type="text"
                 value={searchQuery}
@@ -733,39 +741,105 @@ function Admin() {
                 placeholder="搜尋暱稱、隊伍、Discord ID"
                 style={{ margin: 0, flex: 1, minWidth: 160, fontSize: 13 }}
               />
+              <button
+                onClick={() => setFiltersExpanded(v => !v)}
+                style={{
+                  fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap',
+                  background: filtersExpanded ? '#5865F2' : '#f0f0f0',
+                  color: filtersExpanded ? 'white' : '#555'
+                }}
+              >{filtersExpanded ? '▲ 收起' : '▼ 更多篩選'}</button>
             </div>
 
-            {/* 回報狀態篩選 */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-              {[['', '全部'], ['已回報', '✅ 已回報'], ['未回報', '⏳ 未回報']].map(([val, label]) => (
-                <button
-                  key={val}
-                  onClick={() => setFilterReportAndReset(val)}
-                  style={{
-                    fontSize: 12, padding: '6px 12px',
-                    background: filterReport === val
-                      ? (val === '已回報' ? '#27ae60' : val === '未回報' ? '#e8b046' : '#555')
-                      : '#f0f0f0',
-                    color: filterReport === val ? 'white' : '#555'
-                  }}
-                >{label}</button>
-              ))}
+            {/* 可收合篩選區 */}
+            {filtersExpanded && (
+              <div style={{
+                background: '#f8f9ff', border: '1px solid #e8e9ff',
+                borderRadius: 8, padding: '10px 12px', marginBottom: 10,
+                display: 'flex', flexDirection: 'column', gap: 8
+              }}>
+                {/* 類型篩選 */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: '#888', width: 40 }}>類型</span>
+                  {['', '個人', '團體'].map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setFilterTypeAndReset(t)}
+                      style={{
+                        fontSize: 12, padding: '5px 10px',
+                        background: filterType === t
+                          ? (t === '團體' ? '#2ecc71' : t === '個人' ? '#5865F2' : '#555')
+                          : '#fff',
+                        color: filterType === t ? 'white' : '#555',
+                        border: '1px solid #dde'
+                      }}
+                    >{t === '' ? '全部' : t}</button>
+                  ))}
+                </div>
 
-              {/* 即時統計 */}
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: '#888', alignSelf: 'center' }}>
-                {(() => {
-                  const base = allRecords.filter(r => (!filterPeriod || r.period === filterPeriod))
-                  const { done, pending } = getReportStats(base)
-                  return `✅ ${done} / ⏳ ${pending}`
-                })()}
-              </span>
-            </div>
+                {/* 回報狀態篩選 */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: '#888', width: 40 }}>回報</span>
+                  {[['', '全部'], ['已回報', '✅ 已回報'], ['未回報', '⏳ 未回報']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setFilterReportAndReset(val)}
+                      style={{
+                        fontSize: 12, padding: '5px 10px',
+                        background: filterReport === val
+                          ? (val === '已回報' ? '#27ae60' : val === '未回報' ? '#e8b046' : '#555')
+                          : '#fff',
+                        color: filterReport === val ? 'white' : '#555',
+                        border: '1px solid #dde'
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
 
-            {/* 結果數 + 分頁資訊 */}
+                {/* 繳交項目篩選 */}
+                {[
+                  ['基礎', filterBasic, setFilterBasicAndReset],
+                  ['進階', filterAdvanced, setFilterAdvancedAndReset],
+                  ['心得', filterReflection, setFilterReflectionAndReset],
+                ].map(([label, val, setter]) => (
+                  <div key={label} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: '#888', width: 40 }}>{label}</span>
+                    {[['', '全部'], ['done', '✓ 已繳'], ['missing', '✗ 未繳']].map(([opt, optLabel]) => (
+                      <button
+                        key={opt}
+                        onClick={() => setter(opt)}
+                        style={{
+                          fontSize: 12, padding: '5px 10px',
+                          background: val === opt
+                            ? (opt === 'done' ? '#2ecc71' : opt === 'missing' ? '#e74c3c' : '#555')
+                            : '#fff',
+                          color: val === opt ? 'white' : '#555',
+                          border: '1px solid #dde'
+                        }}
+                      >{optLabel}</button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 結果數 + 排序 + 分頁資訊 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
-                顯示 {filteredRecords.length} / {allRecords.length} 筆
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
+                  顯示 {filteredRecords.length} / {allRecords.length} 筆
+                </p>
+                <button
+                  onClick={() => { setSortOrder(v => v === 'desc' ? 'asc' : 'desc'); setRecordPage(0) }}
+                  style={{
+                    fontSize: 11, padding: '3px 8px',
+                    background: '#f0f0f0', color: '#555', border: '1px solid #ddd'
+                  }}
+                  title="切換排序"
+                >
+                  {sortOrder === 'desc' ? '↓ 最新' : '↑ 最舊'}
+                </button>
+              </div>
               {recordTotalPages > 1 && (
                 <span style={{ fontSize: 12, color: '#888' }}>
                   第 {recordPage + 1} / {recordTotalPages} 頁
