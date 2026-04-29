@@ -52,6 +52,11 @@ function Admin() {
   const [scanning, setScanning] = useState(false)
   const [scanResults, setScanResults] = useState(null)
   const [scanError, setScanError] = useState(null)
+  const [scanPage, setScanPage] = useState(0)
+
+  // 分頁
+  const [recordPage, setRecordPage] = useState(0)
+  const PAGE_SIZE = 10
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -250,6 +255,14 @@ function Admin() {
     return true
   })
 
+  const recordTotalPages = Math.ceil(filteredRecords.length / PAGE_SIZE)
+  const pagedRecords = filteredRecords.slice(recordPage * PAGE_SIZE, (recordPage + 1) * PAGE_SIZE)
+
+  const setFilterPeriodAndReset = (v) => { setFilterPeriod(v); setRecordPage(0) }
+  const setFilterTypeAndReset   = (v) => { setFilterType(v);   setRecordPage(0) }
+  const setFilterReportAndReset = (v) => { setFilterReport(v); setRecordPage(0) }
+  const setSearchQueryAndReset  = (v) => { setSearchQuery(v);  setRecordPage(0) }
+
   // ── 統計 ───────────────────────────────────────────────
   const getReportStats = (recs) => ({
     done: recs.filter(r => r.reportStatus === '已完成').length,
@@ -356,6 +369,7 @@ function Admin() {
     setScanning(true)
     setScanResults(null)
     setScanError(null)
+    setScanPage(0)
     try {
       const res = await axios.get(API_URL, {
         params: { action: 'scanSubmissions', period, secret: SECRET }
@@ -371,6 +385,9 @@ function Admin() {
       setScanning(false)
     }
   }
+
+  const scanTotalPages = scanResults ? Math.ceil(scanResults.length / PAGE_SIZE) : 0
+  const pagedScanResults = scanResults ? scanResults.slice(scanPage * PAGE_SIZE, (scanPage + 1) * PAGE_SIZE) : []
 
   const handleExportCsv = () => {
     if (!scanResults) return
@@ -650,7 +667,7 @@ function Admin() {
             {/* 期數篩選 tabs */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               <button
-                onClick={() => setFilterPeriod('')}
+                onClick={() => setFilterPeriodAndReset('')}
                 style={{
                   fontSize: 12, padding: '5px 12px',
                   background: filterPeriod === '' ? '#5865F2' : '#f0f0f0',
@@ -660,7 +677,7 @@ function Admin() {
               {periods.map(p => (
                 <button
                   key={p}
-                  onClick={() => setFilterPeriod(p)}
+                  onClick={() => setFilterPeriodAndReset(p)}
                   style={{
                     fontSize: 12, padding: '5px 12px',
                     background: filterPeriod === p ? '#5865F2' : '#f0f0f0',
@@ -676,7 +693,7 @@ function Admin() {
                 {['', '個人', '團體'].map(t => (
                   <button
                     key={t}
-                    onClick={() => setFilterType(t)}
+                    onClick={() => setFilterTypeAndReset(t)}
                     style={{
                       fontSize: 12, padding: '6px 12px',
                       background: filterType === t
@@ -690,7 +707,7 @@ function Admin() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => setSearchQueryAndReset(e.target.value)}
                 placeholder="搜尋暱稱、隊伍、Discord ID"
                 style={{ margin: 0, flex: 1, minWidth: 160, fontSize: 13 }}
               />
@@ -701,7 +718,7 @@ function Admin() {
               {[['', '全部'], ['已回報', '✅ 已回報'], ['未回報', '⏳ 未回報']].map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setFilterReport(val)}
+                  onClick={() => setFilterReportAndReset(val)}
                   style={{
                     fontSize: 12, padding: '6px 12px',
                     background: filterReport === val
@@ -722,17 +739,24 @@ function Admin() {
               </span>
             </div>
 
-            {/* 結果數 */}
-            <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
-              顯示 {filteredRecords.length} / {allRecords.length} 筆
-            </p>
+            {/* 結果數 + 分頁資訊 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
+                顯示 {filteredRecords.length} / {allRecords.length} 筆
+              </p>
+              {recordTotalPages > 1 && (
+                <span style={{ fontSize: 12, color: '#888' }}>
+                  第 {recordPage + 1} / {recordTotalPages} 頁
+                </span>
+              )}
+            </div>
 
             {/* 紀錄列表 */}
             {filteredRecords.length === 0 ? (
               <p style={{ color: '#bbb', fontSize: 13, textAlign: 'center' }}>沒有符合條件的紀錄</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {filteredRecords.map((rec, i) => {
+                {pagedRecords.map((rec, i) => {
                   const key = `${rec.discordId}_${rec.period}`
                   const isEditing = editingKey === key
                   return (
@@ -862,6 +886,23 @@ function Admin() {
                 })}
               </div>
             )}
+
+            {/* 參加者資料分頁控制 */}
+            {recordTotalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => setRecordPage(p => Math.max(0, p - 1))}
+                  disabled={recordPage === 0}
+                  style={{ fontSize: 12, padding: '6px 14px', background: recordPage === 0 ? '#f0f0f0' : '#5865F2', color: recordPage === 0 ? '#aaa' : 'white' }}
+                >← 上一頁</button>
+                <span style={{ fontSize: 12, color: '#888' }}>{recordPage + 1} / {recordTotalPages}</span>
+                <button
+                  onClick={() => setRecordPage(p => Math.min(recordTotalPages - 1, p + 1))}
+                  disabled={recordPage === recordTotalPages - 1}
+                  style={{ fontSize: 12, padding: '6px 14px', background: recordPage === recordTotalPages - 1 ? '#f0f0f0' : '#5865F2', color: recordPage === recordTotalPages - 1 ? '#aaa' : 'white' }}
+                >下一頁 →</button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -921,12 +962,17 @@ function Admin() {
 
         {scanResults && (
           <>
-            <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
-              共 {scanResults.length} 筆 ／ 基礎{' '}
-              <strong>{scanResults.filter(r => r.basic).length}</strong>
-              ・進階 <strong>{scanResults.filter(r => r.advanced).length}</strong>
-              ・心得 <strong>{scanResults.filter(r => r.reflection).length}</strong>
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
+                共 {scanResults.length} 筆 ／ 基礎{' '}
+                <strong>{scanResults.filter(r => r.basic).length}</strong>
+                ・進階 <strong>{scanResults.filter(r => r.advanced).length}</strong>
+                ・心得 <strong>{scanResults.filter(r => r.reflection).length}</strong>
+              </p>
+              {scanTotalPages > 1 && (
+                <span style={{ fontSize: 12, color: '#888' }}>第 {scanPage + 1} / {scanTotalPages} 頁</span>
+              )}
+            </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -939,7 +985,7 @@ function Admin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {scanResults.map((r, i) => (
+                  {pagedScanResults.map((r, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={tdStyle}>
                         <span style={{ fontWeight: 500 }}>{r.name || r.discordId}</span>
@@ -953,6 +999,23 @@ function Admin() {
                 </tbody>
               </table>
             </div>
+
+            {/* 掃描結果分頁控制 */}
+            {scanTotalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => setScanPage(p => Math.max(0, p - 1))}
+                  disabled={scanPage === 0}
+                  style={{ fontSize: 12, padding: '6px 14px', background: scanPage === 0 ? '#f0f0f0' : '#5865F2', color: scanPage === 0 ? '#aaa' : 'white' }}
+                >← 上一頁</button>
+                <span style={{ fontSize: 12, color: '#888' }}>{scanPage + 1} / {scanTotalPages}</span>
+                <button
+                  onClick={() => setScanPage(p => Math.min(scanTotalPages - 1, p + 1))}
+                  disabled={scanPage === scanTotalPages - 1}
+                  style={{ fontSize: 12, padding: '6px 14px', background: scanPage === scanTotalPages - 1 ? '#f0f0f0' : '#5865F2', color: scanPage === scanTotalPages - 1 ? '#aaa' : 'white' }}
+                >下一頁 →</button>
+              </div>
+            )}
           </>
         )}
       </div>
