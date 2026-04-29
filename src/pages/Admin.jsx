@@ -48,11 +48,10 @@ function Admin() {
   const [exportMsg, setExportMsg] = useState(null)
 
   // 繳交狀態掃描
-  const [scanPeriod, setScanPeriod] = useState('')
   const [scanning, setScanning] = useState(false)
-  const [scanResults, setScanResults] = useState(null)
+  const [scanResultMap, setScanResultMap] = useState({}) // { 'discordId_period': { basic, advanced, reflection } }
+  const [scannedPeriod, setScannedPeriod] = useState('')
   const [scanError, setScanError] = useState(null)
-  const [scanPage, setScanPage] = useState(0)
 
   // 分頁
   const [recordPage, setRecordPage] = useState(0)
@@ -364,18 +363,18 @@ function Admin() {
 
   // ── 繳交狀態掃描 ──────────────────────────────────────────
   const handleScan = async () => {
-    const period = scanPeriod.trim()
-    if (!period) return
+    if (!filterPeriod) return
     setScanning(true)
-    setScanResults(null)
     setScanError(null)
-    setScanPage(0)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'scanSubmissions', period, secret: SECRET }
+        params: { action: 'scanSubmissions', period: filterPeriod, secret: SECRET }
       })
       if (res.data.success) {
-        setScanResults(res.data.results)
+        const map = {}
+        res.data.results.forEach(r => { map[`${r.discordId}_${filterPeriod}`] = r })
+        setScanResultMap(prev => ({ ...prev, ...map }))
+        setScannedPeriod(filterPeriod)
       } else {
         setScanError(res.data.error || '掃描失敗')
       }
@@ -386,26 +385,29 @@ function Admin() {
     }
   }
 
-  const scanTotalPages = scanResults ? Math.ceil(scanResults.length / PAGE_SIZE) : 0
-  const pagedScanResults = scanResults ? scanResults.slice(scanPage * PAGE_SIZE, (scanPage + 1) * PAGE_SIZE) : []
-
   const handleExportCsv = () => {
-    if (!scanResults) return
-    const header = ['暱稱', 'Discord ID', '基礎', '進階', '心得', '備註']
-    const rows = scanResults.map(r => [
-      r.name || '',
-      r.discordId || '',
-      r.basic === true ? '✓' : r.basic === false ? '✗' : '-',
-      r.advanced === true ? '✓' : r.advanced === false ? '✗' : '-',
-      r.reflection === true ? '✓' : r.reflection === false ? '✗' : '-',
-      r.note || ''
-    ])
+    const rows = filteredRecords.map(r => {
+      const sub = scanResultMap[`${r.discordId}_${r.period}`] || {}
+      return [
+        r.serverNickname || r.discordName || '',
+        r.discordId || '',
+        r.period || '',
+        r.type || '',
+        r.teamName || '',
+        r.reportStatus === '已完成' ? '已回報' : '未回報',
+        sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
+        sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
+        sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
+        r.folderUrl || ''
+      ]
+    })
+    const header = ['暱稱', 'Discord ID', '期數', '類型', '隊伍', '回報狀態', '基礎', '進階', '心得', '資料夾']
     const csv = [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `繳交狀態_${scanPeriod.trim()}.csv`
+    a.download = `月月繪名單${filterPeriod ? '_' + filterPeriod : ''}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -599,13 +601,27 @@ function Admin() {
           <h2 className="admin-section-title" style={{ margin: 0 }}>📋 月月繪參加者資料</h2>
           <div style={{ display: 'flex', gap: 6 }}>
             {allRecords.length > 0 && (
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                style={{ fontSize: 12, padding: '6px 12px', background: '#27ae60' }}
-              >
-                {exporting ? '匯出中...' : '📊 匯出名單'}
-              </button>
+              <>
+                <button
+                  onClick={handleExportCsv}
+                  style={{ fontSize: 12, padding: '6px 12px', background: '#2ecc71' }}
+                >CSV</button>
+                <button
+                  onClick={handleExport}
+                  disabled={exporting}
+                  style={{ fontSize: 12, padding: '6px 12px', background: '#27ae60' }}
+                >
+                  {exporting ? '匯出中...' : '📊 試算表'}
+                </button>
+                <button
+                  onClick={handleScan}
+                  disabled={scanning || !filterPeriod}
+                  title={!filterPeriod ? '請先選擇期數再掃描' : `掃描「${filterPeriod}」繳交狀態`}
+                  style={{ fontSize: 12, padding: '6px 12px', background: !filterPeriod ? '#f0f0f0' : '#e8b046', color: !filterPeriod ? '#aaa' : 'white' }}
+                >
+                  {scanning ? '掃描中...' : '🔍 掃描繳交'}
+                </button>
+              </>
             )}
             <button
               onClick={fetchAllRecords}
@@ -616,6 +632,16 @@ function Admin() {
             </button>
           </div>
         </div>
+
+        {/* 掃描狀態 */}
+        {scanError && (
+          <p style={{ color: '#e74c3c', fontSize: 12, margin: '0 0 8px' }}>✕ {scanError}</p>
+        )}
+        {scannedPeriod && !scanError && (
+          <p style={{ color: '#888', fontSize: 12, margin: '0 0 8px' }}>
+            已掃描「{scannedPeriod}」繳交狀態
+          </p>
+        )}
 
         {/* 匯出訊息 */}
         {exportMsg && (
@@ -875,6 +901,17 @@ function Admin() {
                               ✅ 回報時間：{rec.reportTime.split('T')[0]}
                             </p>
                           )}
+                          {(() => {
+                            const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
+                            if (!sub) return null
+                            return (
+                              <div style={{ display: 'flex', gap: 10, fontSize: 12, marginTop: 2 }}>
+                                <span>基礎 <StatusBadge value={sub.basic} /></span>
+                                <span>進階 <StatusBadge value={sub.advanced} /></span>
+                                <span>心得 <StatusBadge value={sub.reflection} /></span>
+                              </div>
+                            )
+                          })()}
                           {rec.folderUrl && (
                             <a href={rec.folderUrl} target="_blank" rel="noreferrer"
                               style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
@@ -900,119 +937,6 @@ function Admin() {
                   onClick={() => setRecordPage(p => Math.min(recordTotalPages - 1, p + 1))}
                   disabled={recordPage === recordTotalPages - 1}
                   style={{ fontSize: 12, padding: '6px 14px', background: recordPage === recordTotalPages - 1 ? '#f0f0f0' : '#5865F2', color: recordPage === recordTotalPages - 1 ? '#aaa' : 'white' }}
-                >下一頁 →</button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ── 繳交狀態掃描 ── */}
-      <div className="admin-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 className="admin-section-title" style={{ margin: 0 }}>📊 繳交狀態掃描</h2>
-          {scanResults && (
-            <button
-              onClick={handleExportCsv}
-              style={{ fontSize: 12, padding: '6px 12px', background: '#2ecc71' }}
-            >
-              匯出 CSV
-            </button>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <input
-            type="text"
-            value={scanPeriod}
-            onChange={e => setScanPeriod(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleScan()}
-            placeholder={`期數（例：${currentPeriod || '第10期'}）`}
-            style={{ margin: 0, flex: 1 }}
-          />
-          <button
-            onClick={handleScan}
-            disabled={scanning || !scanPeriod.trim()}
-            style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
-          >
-            {scanning ? '掃描中...' : '開始掃描'}
-          </button>
-        </div>
-
-        {/* 期數快選 */}
-        {periods.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            {periods.map(p => (
-              <button
-                key={p}
-                onClick={() => setScanPeriod(p)}
-                style={{
-                  fontSize: 12, padding: '4px 10px',
-                  background: scanPeriod === p ? '#5865F2' : '#f0f0f0',
-                  color: scanPeriod === p ? 'white' : '#555'
-                }}
-              >{p}</button>
-            ))}
-          </div>
-        )}
-
-        {scanError && (
-          <p style={{ color: '#e74c3c', fontSize: 13, fontWeight: 'bold' }}>✕ {scanError}</p>
-        )}
-
-        {scanResults && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <p style={{ color: '#888', fontSize: 12, margin: 0 }}>
-                共 {scanResults.length} 筆 ／ 基礎{' '}
-                <strong>{scanResults.filter(r => r.basic).length}</strong>
-                ・進階 <strong>{scanResults.filter(r => r.advanced).length}</strong>
-                ・心得 <strong>{scanResults.filter(r => r.reflection).length}</strong>
-              </p>
-              {scanTotalPages > 1 && (
-                <span style={{ fontSize: 12, color: '#888' }}>第 {scanPage + 1} / {scanTotalPages} 頁</span>
-              )}
-            </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #e8e9ff' }}>
-                    <th style={thStyle}>暱稱</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>基礎</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>進階</th>
-                    <th style={{ ...thStyle, textAlign: 'center' }}>心得</th>
-                    <th style={thStyle}>備註</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedScanResults.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                      <td style={tdStyle}>
-                        <span style={{ fontWeight: 500 }}>{r.name || r.discordId}</span>
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.basic} /></td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.advanced} /></td>
-                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.reflection} /></td>
-                      <td style={{ ...tdStyle, color: '#aaa', fontSize: 11 }}>{r.note || ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* 掃描結果分頁控制 */}
-            {scanTotalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                <button
-                  onClick={() => setScanPage(p => Math.max(0, p - 1))}
-                  disabled={scanPage === 0}
-                  style={{ fontSize: 12, padding: '6px 14px', background: scanPage === 0 ? '#f0f0f0' : '#5865F2', color: scanPage === 0 ? '#aaa' : 'white' }}
-                >← 上一頁</button>
-                <span style={{ fontSize: 12, color: '#888' }}>{scanPage + 1} / {scanTotalPages}</span>
-                <button
-                  onClick={() => setScanPage(p => Math.min(scanTotalPages - 1, p + 1))}
-                  disabled={scanPage === scanTotalPages - 1}
-                  style={{ fontSize: 12, padding: '6px 14px', background: scanPage === scanTotalPages - 1 ? '#f0f0f0' : '#5865F2', color: scanPage === scanTotalPages - 1 ? '#aaa' : 'white' }}
                 >下一頁 →</button>
               </div>
             )}
