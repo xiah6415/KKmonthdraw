@@ -603,15 +603,11 @@ function Admin() {
             {allRecords.length > 0 && (
               <>
                 <button
-                  onClick={handleExportCsv}
-                  style={{ fontSize: 12, padding: '6px 12px', background: '#2ecc71' }}
-                >CSV</button>
-                <button
                   onClick={handleExport}
                   disabled={exporting}
                   style={{ fontSize: 12, padding: '6px 12px', background: '#27ae60' }}
                 >
-                  {exporting ? '匯出中...' : '📊 試算表'}
+                  {exporting ? '匯出中...' : '📊 匯出試算表'}
                 </button>
                 <button
                   onClick={handleScan}
