@@ -47,6 +47,12 @@ function Admin() {
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState(null)
 
+  // 繳交狀態掃描
+  const [scanPeriod, setScanPeriod] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [scanResults, setScanResults] = useState(null)
+  const [scanError, setScanError] = useState(null)
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -72,6 +78,7 @@ function Admin() {
       setStartDate(periodRes.data.startDate || '')
       setEndDate(periodRes.data.endDate || '')
       setCoverImageUrl(periodRes.data.coverImageUrl || '')
+      setScanPeriod(period)
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
@@ -341,6 +348,59 @@ function Admin() {
       setExporting(false)
     }
   }
+
+  // ── 繳交狀態掃描 ──────────────────────────────────────────
+  const handleScan = async () => {
+    const period = scanPeriod.trim()
+    if (!period) return
+    setScanning(true)
+    setScanResults(null)
+    setScanError(null)
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'scanSubmissions', period, secret: SECRET }
+      })
+      if (res.data.success) {
+        setScanResults(res.data.results)
+      } else {
+        setScanError(res.data.error || '掃描失敗')
+      }
+    } catch {
+      setScanError('無法連線，請再試一次')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const handleExportCsv = () => {
+    if (!scanResults) return
+    const header = ['暱稱', 'Discord ID', '基礎', '進階', '心得', '備註']
+    const rows = scanResults.map(r => [
+      r.name || '',
+      r.discordId || '',
+      r.basic === true ? '✓' : r.basic === false ? '✗' : '-',
+      r.advanced === true ? '✓' : r.advanced === false ? '✗' : '-',
+      r.reflection === true ? '✓' : r.reflection === false ? '✗' : '-',
+      r.note || ''
+    ])
+    const csv = [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `繳交狀態_${scanPeriod.trim()}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const StatusBadge = ({ value }) => {
+    if (value === true) return <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>✓</span>
+    if (value === false) return <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>✗</span>
+    return <span style={{ color: '#bbb' }}>-</span>
+  }
+
+  const thStyle = { padding: '8px 10px', textAlign: 'left', fontWeight: 'bold', color: '#555', whiteSpace: 'nowrap' }
+  const tdStyle = { padding: '7px 10px', verticalAlign: 'middle' }
 
   // ── Loading ────────────────────────────────────────────
   if (loading) return (
@@ -802,6 +862,97 @@ function Admin() {
                 })}
               </div>
             )}
+          </>
+        )}
+      </div>
+
+      {/* ── 繳交狀態掃描 ── */}
+      <div className="admin-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 className="admin-section-title" style={{ margin: 0 }}>📊 繳交狀態掃描</h2>
+          {scanResults && (
+            <button
+              onClick={handleExportCsv}
+              style={{ fontSize: 12, padding: '6px 12px', background: '#2ecc71' }}
+            >
+              匯出 CSV
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <input
+            type="text"
+            value={scanPeriod}
+            onChange={e => setScanPeriod(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleScan()}
+            placeholder={`期數（例：${currentPeriod || '第10期'}）`}
+            style={{ margin: 0, flex: 1 }}
+          />
+          <button
+            onClick={handleScan}
+            disabled={scanning || !scanPeriod.trim()}
+            style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
+          >
+            {scanning ? '掃描中...' : '開始掃描'}
+          </button>
+        </div>
+
+        {/* 期數快選 */}
+        {periods.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {periods.map(p => (
+              <button
+                key={p}
+                onClick={() => setScanPeriod(p)}
+                style={{
+                  fontSize: 12, padding: '4px 10px',
+                  background: scanPeriod === p ? '#5865F2' : '#f0f0f0',
+                  color: scanPeriod === p ? 'white' : '#555'
+                }}
+              >{p}</button>
+            ))}
+          </div>
+        )}
+
+        {scanError && (
+          <p style={{ color: '#e74c3c', fontSize: 13, fontWeight: 'bold' }}>✕ {scanError}</p>
+        )}
+
+        {scanResults && (
+          <>
+            <p style={{ color: '#888', fontSize: 12, marginBottom: 8 }}>
+              共 {scanResults.length} 筆 ／ 基礎{' '}
+              <strong>{scanResults.filter(r => r.basic).length}</strong>
+              ・進階 <strong>{scanResults.filter(r => r.advanced).length}</strong>
+              ・心得 <strong>{scanResults.filter(r => r.reflection).length}</strong>
+            </p>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f8f9ff', borderBottom: '2px solid #e8e9ff' }}>
+                    <th style={thStyle}>暱稱</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>基礎</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>進階</th>
+                    <th style={{ ...thStyle, textAlign: 'center' }}>心得</th>
+                    <th style={thStyle}>備註</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scanResults.map((r, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={tdStyle}>
+                        <span style={{ fontWeight: 500 }}>{r.name || r.discordId}</span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.basic} /></td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.advanced} /></td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}><StatusBadge value={r.reflection} /></td>
+                      <td style={{ ...tdStyle, color: '#aaa', fontSize: 11 }}>{r.note || ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>
