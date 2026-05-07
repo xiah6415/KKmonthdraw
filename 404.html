@@ -3,11 +3,14 @@
   <head>
     <meta charset="utf-8">
     <script>
-      var path = window.location.pathname;
-      var search = window.location.search;
-      var hash = window.location.hash;
-      var query = '?p=' + path.slice(1).replace(/&/g, '~and~') + (search ? '&q=' + search.slice(1).replace(/&/g, '~and~') : '') + hash;
-      window.location.replace(window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '') + '/' + query);
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 2).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(1).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
     </script>
   </head>
   <body>
