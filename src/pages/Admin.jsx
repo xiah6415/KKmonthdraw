@@ -62,6 +62,15 @@ function Admin() {
   const [recordPage, setRecordPage] = useState(0)
   const PAGE_SIZE = 10
 
+  // 全勤調整
+  const [attendanceUpdating, setAttendanceUpdating] = useState(null)
+
+  // 新增歷史參加者
+  const [legacyFormOpen, setLegacyFormOpen] = useState(false)
+  const [legacyForm, setLegacyForm] = useState({ username: '', discordName: '', type: '個人', teamName: '', period: '', fullAttendance: true })
+  const [legacyAdding, setLegacyAdding] = useState(false)
+  const [legacyMsg, setLegacyMsg] = useState(null)
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -408,6 +417,61 @@ function Admin() {
     }
   }
 
+  const handleUpdateAttendance = async (rec, status) => {
+    const key = `${rec.discordId}_${rec.period}`
+    setAttendanceUpdating(key)
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'updateAttendanceStatus', discordId: rec.discordId, period: rec.period, status, secret: SECRET }
+      })
+      if (res.data.success) {
+        setAllRecords(prev => prev.map(r =>
+          r.discordId === rec.discordId && r.period === rec.period ? { ...r, reportStatus: status } : r
+        ))
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setAttendanceUpdating(null)
+    }
+  }
+
+  const handleAddLegacy = async () => {
+    if (!legacyForm.username.trim() || !legacyForm.period.trim()) {
+      setLegacyMsg({ type: 'error', text: 'Discord username 和期數為必填' })
+      return
+    }
+    setLegacyAdding(true)
+    setLegacyMsg(null)
+    try {
+      const name = legacyForm.discordName.trim() || legacyForm.username.trim()
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'addLegacyRecord',
+          username: legacyForm.username.trim(),
+          discordName: name,
+          serverNickname: name,
+          type: legacyForm.type,
+          teamName: legacyForm.teamName.trim(),
+          period: legacyForm.period.trim(),
+          fullAttendance: legacyForm.fullAttendance.toString(),
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setLegacyMsg({ type: 'success', text: `已新增 ${name}` })
+        setLegacyForm(f => ({ ...f, username: '', discordName: '', teamName: '' }))
+        if (allRecords.length > 0) fetchAllRecords()
+      } else {
+        setLegacyMsg({ type: 'error', text: '新增失敗：' + (res.data.error || '未知') })
+      }
+    } catch {
+      setLegacyMsg({ type: 'error', text: '新增失敗，請再試一次' })
+    } finally {
+      setLegacyAdding(false)
+    }
+  }
+
   const handleExportCsv = () => {
     const rows = filteredRecords.map(r => {
       const sub = scanResultMap[`${r.discordId}_${r.period}`] || {}
@@ -615,6 +679,73 @@ function Admin() {
           }}>
             {adminMsg.type === 'success' ? '✓ ' : '✕ '}{adminMsg.text}
           </p>
+        )}
+      </div>
+
+      {/* ── 新增歷史參加者 ── */}
+      <div className="admin-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 className="admin-section-title" style={{ margin: 0 }}>📝 新增歷史參加者</h2>
+          <button
+            onClick={() => { setLegacyFormOpen(v => !v); setLegacyMsg(null) }}
+            style={{ fontSize: 12, padding: '5px 12px', background: legacyFormOpen ? '#5865F2' : '#f0f0f0', color: legacyFormOpen ? 'white' : '#555' }}
+          >{legacyFormOpen ? '▲ 收起' : '▼ 展開'}</button>
+        </div>
+        {legacyFormOpen && (
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>期數 *</label>
+                <input type="text" value={legacyForm.period} onChange={e => setLegacyForm(f => ({ ...f, period: e.target.value }))} placeholder="例：第一期" style={{ margin: 0 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>類型</label>
+                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                  {['個人', '團體'].map(t => (
+                    <button key={t} onClick={() => setLegacyForm(f => ({ ...f, type: t }))}
+                      style={{ flex: 1, fontSize: 12, padding: '8px', background: legacyForm.type === t ? '#5865F2' : '#f0f0f0', color: legacyForm.type === t ? 'white' : '#555' }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>Discord Username *</label>
+              <input type="text" value={legacyForm.username} onChange={e => setLegacyForm(f => ({ ...f, username: e.target.value }))} placeholder="例：username123" style={{ margin: 0 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>暱稱</label>
+              <input type="text" value={legacyForm.discordName} onChange={e => setLegacyForm(f => ({ ...f, discordName: e.target.value }))} placeholder="留空則使用 username" style={{ margin: 0 }} />
+            </div>
+            {legacyForm.type === '團體' && (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>隊伍名稱</label>
+                <input type="text" value={legacyForm.teamName} onChange={e => setLegacyForm(f => ({ ...f, teamName: e.target.value }))} placeholder="隊伍名稱" style={{ margin: 0 }} />
+              </div>
+            )}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>全勤</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[true, false].map(v => (
+                  <button key={String(v)} onClick={() => setLegacyForm(f => ({ ...f, fullAttendance: v }))}
+                    style={{ flex: 1, fontSize: 12, padding: '8px',
+                      background: legacyForm.fullAttendance === v ? (v ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                      color: legacyForm.fullAttendance === v ? 'white' : '#555' }}>
+                    {v ? '全勤' : '未全勤'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={handleAddLegacy} disabled={legacyAdding} style={{ background: '#5865F2', padding: '10px' }}>
+              {legacyAdding ? '新增中...' : '新增'}
+            </button>
+            {legacyMsg && (
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: legacyMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                {legacyMsg.type === 'success' ? '✓ ' : '✕ '}{legacyMsg.text}
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -970,6 +1101,21 @@ function Admin() {
                             <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
                               ✅ 回報時間：{rec.reportTime.split('T')[0]}
                             </p>
+                          )}
+                          {rec.period !== currentPeriod && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
+                              {['全勤', '未全勤'].map(status => (
+                                <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
+                                  disabled={attendanceUpdating === `${rec.discordId}_${rec.period}`}
+                                  style={{ fontSize: 11, padding: '3px 10px',
+                                    background: rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                                    color: rec.reportStatus === status ? 'white' : '#666',
+                                    border: `1px solid ${rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
                           )}
                           {(() => {
                             const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
