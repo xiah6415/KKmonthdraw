@@ -28,7 +28,12 @@ function Dashboard() {
   const [reportingIndex, setReportingIndex] = useState(null)
   // 認領團體紀錄
   const [claimOpen, setClaimOpen] = useState(false)
-  const [claimForm, setClaimForm] = useState({ period: '', teamName: '' })
+  const [claimPeriod, setClaimPeriod] = useState('')
+  const [claimPeriods, setClaimPeriods] = useState([])
+  const [claimTeams, setClaimTeams] = useState([])
+  const [claimTeamSearch, setClaimTeamSearch] = useState('')
+  const [claimTeamSelected, setClaimTeamSelected] = useState('')
+  const [claimDataLoading, setClaimDataLoading] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimMsg, setClaimMsg] = useState(null)
   const navigate = useNavigate()
@@ -220,9 +225,37 @@ function Dashboard() {
     }
   }
 
+  const handleOpenClaim = async () => {
+    const next = !claimOpen
+    setClaimOpen(next)
+    setClaimMsg(null)
+    if (next && claimPeriods.length === 0) {
+      setClaimDataLoading(true)
+      try {
+        const res = await axios.get(API_URL, { params: { action: 'getTeamsForClaim', secret: SECRET } })
+        if (res.data.success) setClaimPeriods(res.data.periods || [])
+      } catch {}
+      finally { setClaimDataLoading(false) }
+    }
+  }
+
+  const handleClaimPeriodChange = async (period) => {
+    setClaimPeriod(period)
+    setClaimTeamSearch('')
+    setClaimTeamSelected('')
+    setClaimTeams([])
+    if (!period) return
+    setClaimDataLoading(true)
+    try {
+      const res = await axios.get(API_URL, { params: { action: 'getTeamsForClaim', period, secret: SECRET } })
+      if (res.data.success) setClaimTeams(res.data.teams || [])
+    } catch {}
+    finally { setClaimDataLoading(false) }
+  }
+
   const handleClaimTeam = async () => {
-    if (!claimForm.period.trim() || !claimForm.teamName.trim()) {
-      setClaimMsg({ type: 'error', text: '期數和隊伍名稱都要填' })
+    if (!claimPeriod || !claimTeamSelected) {
+      setClaimMsg({ type: 'error', text: '請選擇期數和隊伍' })
       return
     }
     setClaiming(true)
@@ -233,15 +266,18 @@ function Dashboard() {
           action: 'claimTeamRecord',
           discordId: discordUser.id,
           username: discordUser.username,
-          period: claimForm.period.trim(),
-          teamName: claimForm.teamName.trim(),
+          period: claimPeriod,
+          teamName: claimTeamSelected,
           secret: SECRET
         }
       })
       if (res.data.success) {
         setRecords(prev => [...prev, res.data.record])
         setClaimMsg({ type: 'success', text: '認領成功！' })
-        setClaimForm({ period: '', teamName: '' })
+        setClaimPeriod('')
+        setClaimTeamSearch('')
+        setClaimTeamSelected('')
+        setClaimTeams([])
         setClaimOpen(false)
       } else {
         setClaimMsg({ type: 'error', text: res.data.error || '找不到對應的隊伍紀錄' })
@@ -252,6 +288,17 @@ function Dashboard() {
       setClaiming(false)
     }
   }
+
+  const filteredClaimTeams = claimTeams
+    .filter(t => !claimTeamSearch || t.toLowerCase().includes(claimTeamSearch.toLowerCase()))
+    .sort((a, b) => {
+      const s = claimTeamSearch.toLowerCase()
+      if (!s) return 0
+      const aStarts = a.toLowerCase().startsWith(s), bStarts = b.toLowerCase().startsWith(s)
+      if (aStarts && !bStarts) return -1
+      if (!aStarts && bStarts) return 1
+      return 0
+    })
 
   const handleCancelReport = async (index, record) => {
     setReportingIndex(index)
@@ -551,31 +598,58 @@ function Dashboard() {
       {/* 認領團體紀錄 */}
       <div style={{ borderRadius: 10, border: '1px solid #eee', overflow: 'hidden' }}>
         <button
-          onClick={() => { setClaimOpen(v => !v); setClaimMsg(null) }}
+          onClick={handleOpenClaim}
           style={{ width: '100%', background: 'transparent', color: '#aaa', border: 'none', fontSize: 13, textAlign: 'left', padding: '10px 14px' }}
         >
           👥 曾以隊伍參加過往期數？{claimOpen ? ' ▲' : ' ▼'}
         </button>
         {claimOpen && (
-          <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                value={claimForm.period}
-                onChange={e => setClaimForm(f => ({ ...f, period: e.target.value }))}
-                placeholder="期數（例：第一期）"
-                style={{ margin: 0, flex: 1, fontSize: 13 }}
-              />
-              <input
-                type="text"
-                value={claimForm.teamName}
-                onChange={e => setClaimForm(f => ({ ...f, teamName: e.target.value }))}
-                placeholder="隊伍名稱"
-                style={{ margin: 0, flex: 1, fontSize: 13 }}
-              />
-            </div>
-            <button onClick={handleClaimTeam} disabled={claiming} style={{ fontSize: 13, padding: '8px' }}>
-              {claiming ? '查詢中...' : '認領'}
+          <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {claimDataLoading && !claimPeriod ? (
+              <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>載入中...</p>
+            ) : (
+              <select
+                value={claimPeriod}
+                onChange={e => handleClaimPeriodChange(e.target.value)}
+                style={{ margin: 0, fontSize: 13, padding: '8px', borderRadius: 8, border: '1px solid #ddd' }}
+              >
+                <option value="">選擇期數</option>
+                {claimPeriods.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            )}
+            {claimPeriod && (
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={claimTeamSelected || claimTeamSearch}
+                  onChange={e => { setClaimTeamSearch(e.target.value); setClaimTeamSelected('') }}
+                  placeholder={claimDataLoading ? '載入隊伍中...' : '搜尋隊伍名稱'}
+                  disabled={claimDataLoading}
+                  style={{ margin: 0, fontSize: 13, width: '100%', boxSizing: 'border-box' }}
+                />
+                {!claimTeamSelected && (claimTeamSearch || claimTeams.length > 0) && filteredClaimTeams.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                    background: 'white', border: '1px solid #ddd', borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto'
+                  }}>
+                    {filteredClaimTeams.map(t => (
+                      <div key={t}
+                        onClick={() => { setClaimTeamSelected(t); setClaimTeamSearch('') }}
+                        style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8f9ff'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                      >{t}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {claimTeamSelected && (
+              <p style={{ margin: 0, fontSize: 12, color: '#5865F2' }}>✓ 已選擇：{claimTeamSelected}</p>
+            )}
+            <button onClick={handleClaimTeam} disabled={claiming || !claimPeriod || !claimTeamSelected} style={{ fontSize: 13, padding: '8px' }}>
+              {claiming ? '認領中...' : '認領'}
             </button>
             {claimMsg && (
               <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: claimMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
