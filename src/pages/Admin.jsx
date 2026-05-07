@@ -68,7 +68,7 @@ function Admin() {
 
   // 新增歷史參加者
   const [legacyFormOpen, setLegacyFormOpen] = useState(false)
-  const [legacyForm, setLegacyForm] = useState({ username: '', discordName: '', type: '個人', teamName: '', period: '', fullAttendance: true })
+  const [legacyForm, setLegacyForm] = useState({ username: '', discordName: '', type: '個人', teamName: '', period: '', fullAttendance: true, discordId: '' })
   const [legacyAdding, setLegacyAdding] = useState(false)
   const [legacyMsg, setLegacyMsg] = useState(null)
 
@@ -458,12 +458,13 @@ function Admin() {
           teamName: legacyForm.teamName.trim(),
           period: legacyForm.period.trim(),
           fullAttendance: legacyForm.fullAttendance.toString(),
+          discordId: legacyForm.discordId.trim(),
           secret: SECRET
         }
       })
       if (res.data.success) {
         setLegacyMsg({ type: 'success', text: `已新增 ${name}` })
-        setLegacyForm(f => ({ ...f, username: '', discordName: '', teamName: '' }))
+        setLegacyForm(f => ({ ...f, username: '', discordName: '', teamName: '', discordId: '' }))
         if (allRecords.length > 0) fetchAllRecords()
       } else {
         setLegacyMsg({ type: 'error', text: '新增失敗：' + (res.data.error || '未知') })
@@ -757,6 +758,12 @@ function Admin() {
               <div>
                 <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>隊伍名稱</label>
                 <input type="text" value={legacyForm.teamName} onChange={e => setLegacyForm(f => ({ ...f, teamName: e.target.value }))} placeholder="隊伍名稱" style={{ margin: 0 }} />
+              </div>
+            )}
+            {legacyForm.type === '個人' && (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>Discord ID <span style={{ color: '#bbb' }}>（選填，18位數字）</span></label>
+                <input type="text" value={legacyForm.discordId} onChange={e => setLegacyForm(f => ({ ...f, discordId: e.target.value }))} placeholder="123456789012345678" style={{ margin: 0 }} />
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
