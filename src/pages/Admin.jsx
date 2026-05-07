@@ -682,73 +682,6 @@ function Admin() {
         )}
       </div>
 
-      {/* ── 新增歷史參加者 ── */}
-      <div className="admin-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 className="admin-section-title" style={{ margin: 0 }}>📝 新增歷史參加者</h2>
-          <button
-            onClick={() => { setLegacyFormOpen(v => !v); setLegacyMsg(null) }}
-            style={{ fontSize: 12, padding: '5px 12px', background: legacyFormOpen ? '#5865F2' : '#f0f0f0', color: legacyFormOpen ? 'white' : '#555' }}
-          >{legacyFormOpen ? '▲ 收起' : '▼ 展開'}</button>
-        </div>
-        {legacyFormOpen && (
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>期數 *</label>
-                <input type="text" value={legacyForm.period} onChange={e => setLegacyForm(f => ({ ...f, period: e.target.value }))} placeholder="例：第一期" style={{ margin: 0 }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>類型</label>
-                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                  {['個人', '團體'].map(t => (
-                    <button key={t} onClick={() => setLegacyForm(f => ({ ...f, type: t }))}
-                      style={{ flex: 1, fontSize: 12, padding: '8px', background: legacyForm.type === t ? '#5865F2' : '#f0f0f0', color: legacyForm.type === t ? 'white' : '#555' }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>Discord Username *</label>
-              <input type="text" value={legacyForm.username} onChange={e => setLegacyForm(f => ({ ...f, username: e.target.value }))} placeholder="例：username123" style={{ margin: 0 }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>暱稱</label>
-              <input type="text" value={legacyForm.discordName} onChange={e => setLegacyForm(f => ({ ...f, discordName: e.target.value }))} placeholder="留空則使用 username" style={{ margin: 0 }} />
-            </div>
-            {legacyForm.type === '團體' && (
-              <div>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>隊伍名稱</label>
-                <input type="text" value={legacyForm.teamName} onChange={e => setLegacyForm(f => ({ ...f, teamName: e.target.value }))} placeholder="隊伍名稱" style={{ margin: 0 }} />
-              </div>
-            )}
-            <div>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>全勤</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[true, false].map(v => (
-                  <button key={String(v)} onClick={() => setLegacyForm(f => ({ ...f, fullAttendance: v }))}
-                    style={{ flex: 1, fontSize: 12, padding: '8px',
-                      background: legacyForm.fullAttendance === v ? (v ? '#2ecc71' : '#e8b046') : '#f0f0f0',
-                      color: legacyForm.fullAttendance === v ? 'white' : '#555' }}>
-                    {v ? '全勤' : '未全勤'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button onClick={handleAddLegacy} disabled={legacyAdding} style={{ background: '#5865F2', padding: '10px' }}>
-              {legacyAdding ? '新增中...' : '新增'}
-            </button>
-            {legacyMsg && (
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: legacyMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
-                {legacyMsg.type === 'success' ? '✓ ' : '✕ '}{legacyMsg.text}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* ── 所有建檔紀錄 ── */}
       <div className="admin-section">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -774,6 +707,10 @@ function Admin() {
               </>
             )}
             <button
+              onClick={() => { setLegacyFormOpen(v => !v); setLegacyMsg(null) }}
+              style={{ fontSize: 12, padding: '6px 12px', background: legacyFormOpen ? '#5865F2' : '#f0f0f0', color: legacyFormOpen ? 'white' : '#555' }}
+            >+ 新增</button>
+            <button
               onClick={fetchAllRecords}
               disabled={loadingRecords}
               style={{ fontSize: 12, padding: '6px 12px' }}
@@ -782,6 +719,68 @@ function Admin() {
             </button>
           </div>
         </div>
+
+        {/* 新增參加者表單 */}
+        {legacyFormOpen && (
+          <div style={{ background: '#f8f9ff', border: '1px solid #e8e9ff', borderRadius: 8, padding: '12px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>期數 *</label>
+                <input type="text" value={legacyForm.period} onChange={e => setLegacyForm(f => ({ ...f, period: e.target.value }))} placeholder="例：第一期" style={{ margin: 0 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>類型</label>
+                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                  {['個人', '團體'].map(t => (
+                    <button key={t} onClick={() => setLegacyForm(f => ({ ...f, type: t }))}
+                      style={{ flex: 1, fontSize: 12, padding: '8px', background: legacyForm.type === t ? '#5865F2' : '#fff', color: legacyForm.type === t ? 'white' : '#555', border: '1px solid #dde' }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>Discord Username *</label>
+                <input type="text" value={legacyForm.username} onChange={e => setLegacyForm(f => ({ ...f, username: e.target.value }))} placeholder="username123" style={{ margin: 0 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>暱稱</label>
+                <input type="text" value={legacyForm.discordName} onChange={e => setLegacyForm(f => ({ ...f, discordName: e.target.value }))} placeholder="留空則用 username" style={{ margin: 0 }} />
+              </div>
+            </div>
+            {legacyForm.type === '團體' && (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>隊伍名稱</label>
+                <input type="text" value={legacyForm.teamName} onChange={e => setLegacyForm(f => ({ ...f, teamName: e.target.value }))} placeholder="隊伍名稱" style={{ margin: 0 }} />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>全勤</label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[true, false].map(v => (
+                    <button key={String(v)} onClick={() => setLegacyForm(f => ({ ...f, fullAttendance: v }))}
+                      style={{ flex: 1, fontSize: 12, padding: '8px',
+                        background: legacyForm.fullAttendance === v ? (v ? '#2ecc71' : '#e8b046') : '#fff',
+                        color: legacyForm.fullAttendance === v ? 'white' : '#555', border: '1px solid #dde' }}>
+                      {v ? '全勤' : '未全勤'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={handleAddLegacy} disabled={legacyAdding} style={{ background: '#5865F2', padding: '8px 20px', whiteSpace: 'nowrap' }}>
+                {legacyAdding ? '新增中...' : '新增'}
+              </button>
+            </div>
+            {legacyMsg && (
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: legacyMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                {legacyMsg.type === 'success' ? '✓ ' : '✕ '}{legacyMsg.text}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* 掃描狀態 */}
         {scanError && (
