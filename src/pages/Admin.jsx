@@ -87,7 +87,7 @@ function Admin() {
       setStartDate(periodRes.data.startDate || '')
       setEndDate(periodRes.data.endDate || '')
       setCoverImageUrl(periodRes.data.coverImageUrl || '')
-      setScanPeriod(period)
+      setScannedPeriod(period)
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
