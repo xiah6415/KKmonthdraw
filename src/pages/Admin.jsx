@@ -33,6 +33,7 @@ function Admin() {
   const [filterBasic, setFilterBasic] = useState('')
   const [filterAdvanced, setFilterAdvanced] = useState('')
   const [filterReflection, setFilterReflection] = useState('')
+  const [filterAttendance, setFilterAttendance] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOrder, setSortOrder] = useState('desc')
   const [filtersExpanded, setFiltersExpanded] = useState(false)
@@ -259,6 +260,7 @@ function Admin() {
       if (filterType && rec.type !== filterType) return false
       if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
       if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
+      if (filterAttendance && rec.reportStatus !== filterAttendance) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
@@ -291,8 +293,9 @@ function Admin() {
   const setFilterReportAndReset     = (v) => { setFilterReport(v);     setRecordPage(0) }
   const setFilterBasicAndReset      = (v) => { setFilterBasic(v);      setRecordPage(0) }
   const setFilterAdvancedAndReset   = (v) => { setFilterAdvanced(v);   setRecordPage(0) }
-  const setFilterReflectionAndReset = (v) => { setFilterReflection(v); setRecordPage(0) }
-  const setSearchQueryAndReset      = (v) => { setSearchQuery(v);      setRecordPage(0) }
+  const setFilterReflectionAndReset  = (v) => { setFilterReflection(v);  setRecordPage(0) }
+  const setFilterAttendanceAndReset  = (v) => { setFilterAttendance(v);  setRecordPage(0) }
+  const setSearchQueryAndReset       = (v) => { setSearchQuery(v);       setRecordPage(0) }
 
   // ── 統計 ───────────────────────────────────────────────
   const getReportStats = (recs) => ({
@@ -923,6 +926,19 @@ function Admin() {
                         border: '1px solid #dde'
                       }}
                     >{label}</button>
+                  ))}
+                </div>
+
+                {/* 全勤篩選 */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: '#888', width: 40 }}>全勤</span>
+                  {[['', '全部'], ['全勤', '✅ 全勤'], ['未全勤', '⚠️ 未全勤']].map(([val, label]) => (
+                    <button key={val} onClick={() => setFilterAttendanceAndReset(val)}
+                      style={{ fontSize: 12, padding: '5px 10px',
+                        background: filterAttendance === val ? (val === '全勤' ? '#2ecc71' : val === '未全勤' ? '#e8b046' : '#555') : '#fff',
+                        color: filterAttendance === val ? 'white' : '#555', border: '1px solid #dde' }}>
+                      {label}
+                    </button>
                   ))}
                 </div>
 

@@ -26,6 +26,11 @@ function Dashboard() {
   const [editError, setEditError] = useState(null)
   // 回報上傳
   const [reportingIndex, setReportingIndex] = useState(null)
+  // 認領團體紀錄
+  const [claimOpen, setClaimOpen] = useState(false)
+  const [claimForm, setClaimForm] = useState({ period: '', teamName: '' })
+  const [claiming, setClaiming] = useState(false)
+  const [claimMsg, setClaimMsg] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -212,6 +217,39 @@ function Dashboard() {
       console.error('回報失敗：', err.message)
     } finally {
       setReportingIndex(null)
+    }
+  }
+
+  const handleClaimTeam = async () => {
+    if (!claimForm.period.trim() || !claimForm.teamName.trim()) {
+      setClaimMsg({ type: 'error', text: '期數和隊伍名稱都要填' })
+      return
+    }
+    setClaiming(true)
+    setClaimMsg(null)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'claimTeamRecord',
+          discordId: discordUser.id,
+          username: discordUser.username,
+          period: claimForm.period.trim(),
+          teamName: claimForm.teamName.trim(),
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setRecords(prev => [...prev, res.data.record])
+        setClaimMsg({ type: 'success', text: '認領成功！' })
+        setClaimForm({ period: '', teamName: '' })
+        setClaimOpen(false)
+      } else {
+        setClaimMsg({ type: 'error', text: res.data.error || '找不到對應的隊伍紀錄' })
+      }
+    } catch {
+      setClaimMsg({ type: 'error', text: '發生錯誤，請再試一次' })
+    } finally {
+      setClaiming(false)
     }
   }
 
@@ -508,6 +546,44 @@ function Dashboard() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* 認領團體紀錄 */}
+      <div style={{ borderRadius: 10, border: '1px solid #eee', overflow: 'hidden' }}>
+        <button
+          onClick={() => { setClaimOpen(v => !v); setClaimMsg(null) }}
+          style={{ width: '100%', background: 'transparent', color: '#aaa', border: 'none', fontSize: 13, textAlign: 'left', padding: '10px 14px' }}
+        >
+          👥 曾以隊伍參加過往期數？{claimOpen ? ' ▲' : ' ▼'}
+        </button>
+        {claimOpen && (
+          <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                value={claimForm.period}
+                onChange={e => setClaimForm(f => ({ ...f, period: e.target.value }))}
+                placeholder="期數（例：第一期）"
+                style={{ margin: 0, flex: 1, fontSize: 13 }}
+              />
+              <input
+                type="text"
+                value={claimForm.teamName}
+                onChange={e => setClaimForm(f => ({ ...f, teamName: e.target.value }))}
+                placeholder="隊伍名稱"
+                style={{ margin: 0, flex: 1, fontSize: 13 }}
+              />
+            </div>
+            <button onClick={handleClaimTeam} disabled={claiming} style={{ fontSize: 13, padding: '8px' }}>
+              {claiming ? '查詢中...' : '認領'}
+            </button>
+            {claimMsg && (
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 'bold', color: claimMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                {claimMsg.type === 'success' ? '✓ ' : '✕ '}{claimMsg.text}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 管理員入口 */}
