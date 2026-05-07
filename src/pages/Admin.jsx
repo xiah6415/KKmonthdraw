@@ -290,11 +290,11 @@ function Admin() {
 
   const setFilterPeriodAndReset     = (v) => { setFilterPeriod(v);     setRecordPage(0) }
   const setFilterTypeAndReset       = (v) => { setFilterType(v);       setRecordPage(0) }
-  const setFilterReportAndReset     = (v) => { setFilterReport(v);     setRecordPage(0) }
+  const setFilterReportAndReset     = (v) => { setFilterReport(v); if (v) setFilterAttendance(''); setRecordPage(0) }
   const setFilterBasicAndReset      = (v) => { setFilterBasic(v);      setRecordPage(0) }
   const setFilterAdvancedAndReset   = (v) => { setFilterAdvanced(v);   setRecordPage(0) }
   const setFilterReflectionAndReset  = (v) => { setFilterReflection(v);  setRecordPage(0) }
-  const setFilterAttendanceAndReset  = (v) => { setFilterAttendance(v);  setRecordPage(0) }
+  const setFilterAttendanceAndReset  = (v) => { setFilterAttendance(v); if (v) setFilterReport(''); setRecordPage(0) }
   const setSearchQueryAndReset       = (v) => { setSearchQuery(v);       setRecordPage(0) }
 
   // ── 統計 ───────────────────────────────────────────────

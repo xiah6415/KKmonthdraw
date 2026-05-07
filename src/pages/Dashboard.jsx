@@ -36,6 +36,7 @@ function Dashboard() {
   const [claimDataLoading, setClaimDataLoading] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimMsg, setClaimMsg] = useState(null)
+  const [claimDropdownOpen, setClaimDropdownOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -244,6 +245,7 @@ function Dashboard() {
     setClaimTeamSearch('')
     setClaimTeamSelected('')
     setClaimTeams([])
+    setClaimDropdownOpen(false)
     if (!period) return
     setClaimDataLoading(true)
     try {
@@ -622,12 +624,14 @@ function Dashboard() {
                 <input
                   type="text"
                   value={claimTeamSelected || claimTeamSearch}
-                  onChange={e => { setClaimTeamSearch(e.target.value); setClaimTeamSelected('') }}
+                  onChange={e => { setClaimTeamSearch(e.target.value); setClaimTeamSelected(''); setClaimDropdownOpen(true) }}
+                  onFocus={() => setClaimDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setClaimDropdownOpen(false), 150)}
                   placeholder={claimDataLoading ? '載入隊伍中...' : '搜尋隊伍名稱'}
                   disabled={claimDataLoading}
                   style={{ margin: 0, fontSize: 13, width: '100%', boxSizing: 'border-box' }}
                 />
-                {!claimTeamSelected && (claimTeamSearch || claimTeams.length > 0) && filteredClaimTeams.length > 0 && (
+                {!claimTeamSelected && claimDropdownOpen && filteredClaimTeams.length > 0 && (
                   <div style={{
                     position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
                     background: 'white', border: '1px solid #ddd', borderRadius: 8,
@@ -635,7 +639,7 @@ function Dashboard() {
                   }}>
                     {filteredClaimTeams.map(t => (
                       <div key={t}
-                        onClick={() => { setClaimTeamSelected(t); setClaimTeamSearch('') }}
+                        onClick={() => { setClaimTeamSelected(t); setClaimTeamSearch(''); setClaimDropdownOpen(false) }}
                         style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
                         onMouseEnter={e => e.currentTarget.style.background = '#f8f9ff'}
                         onMouseLeave={e => e.currentTarget.style.background = 'white'}
