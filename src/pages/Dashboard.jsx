@@ -62,6 +62,7 @@ function Dashboard() {
             params: {
               action: 'getUserRecords',
               discordId: storedUser.id,
+              discordUsername: storedUser.username,
               secret: SECRET
             }
           })
@@ -360,12 +361,40 @@ function Dashboard() {
               <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
             )}
 
-            <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
-              🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
-            </p>
+            {record.period === currentPeriod && (
+              <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
+                🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
+              </p>
+            )}
 
-            {/* 編輯 Google 帳號（展開區域） */}
-            {editingIndex === index ? (
+            {/* 非當期：顯示全勤狀態 */}
+            {record.period !== currentPeriod && (
+              <div style={{
+                display: 'inline-block',
+                marginTop: 4,
+                padding: '4px 12px',
+                borderRadius: 20,
+                fontSize: 13,
+                fontWeight: 'bold',
+                ...(record.reportStatus === '全勤' ? {
+                  background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
+                } : record.reportStatus === '未全勤' ? {
+                  background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046'
+                } : record.reportStatus === '已完成' ? {
+                  background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
+                } : {
+                  background: '#f0f0f0', color: '#888', border: '1px solid #ccc'
+                })
+              }}>
+                {record.reportStatus === '全勤' ? '✅ 全勤' :
+                 record.reportStatus === '未全勤' ? '⚠️ 未全勤' :
+                 record.reportStatus === '已完成' ? '✅ 有完成' :
+                 '🎨 有參加'}
+              </div>
+            )}
+
+            {/* 編輯 Google 帳號（展開區域，歷史紀錄不顯示） */}
+            {record.period === currentPeriod && (editingIndex === index ? (
               <div className="edit-section">
                 <p className="edit-title">✏️ 修改資料</p>
                 <div style={{ marginBottom: 10 }}>
@@ -439,10 +468,10 @@ function Dashboard() {
                   </button>
                 </div>
               )
-            )}
+            ))}
 
-            {/* 已上傳作業回報 */}
-            {record.reportStatus === '已完成' ? (
+            {/* 已上傳作業回報（歷史紀錄不顯示） */}
+            {record.period === currentPeriod && (record.reportStatus === '已完成' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="report-done" style={{ flex: 1 }}>
                   ✅ 通知成功
@@ -468,13 +497,15 @@ function Dashboard() {
               >
                 {reportingIndex === index ? '通知中...' : '已上傳作業'}
               </button>
-            )}
+            ))}
 
-            <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-              <button style={{ width: '100%', marginTop: 4, padding: 10, fontSize: 14 }}>
-                📂 開啟資料夾
-              </button>
-            </a>
+            {record.period === currentPeriod && record.folderUrl && (
+              <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                <button style={{ width: '100%', marginTop: 4, padding: 10, fontSize: 14 }}>
+                  📂 開啟資料夾
+                </button>
+              </a>
+            )}
           </div>
         ))}
       </div>
