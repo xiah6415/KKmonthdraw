@@ -87,6 +87,17 @@ const steps = [
           <span className="help-field-label">📋 本期尚未建檔</span>
           <span className="help-field-desc">若新的一期已開始，Dashboard 上方會出現提示，點擊「立即建檔」即可報名。</span>
         </div>
+        <div className="help-field">
+          <span className="help-field-label">🏅 歷期全勤狀態</span>
+          <span className="help-field-desc">過去期數的紀錄卡片會顯示全勤結果：✅ 全勤、⚠️ 未全勤、✅ 有完成（已回報）或 🎨 有參加。</span>
+        </div>
+        <div className="help-field">
+          <span className="help-field-label">👥 認領歷史隊伍紀錄</span>
+          <span className="help-field-desc">
+            曾以隊伍名義參加過往期數、但查不到個人紀錄時，可使用 Dashboard 底部的「曾以隊伍參加過往期數？」功能。
+            選擇期數 → 搜尋隊伍名稱 → 點「認領」，即可在個人紀錄中新增該期參加紀錄。
+          </span>
+        </div>
       </>
     )
   }
@@ -116,6 +127,10 @@ const faqs = [
   {
     q: '倒數計時消失或顯示「活動已結束」怎麼辦？',
     a: '代表本期截止日已過，若仍需上傳請聯繫管理員確認是否延期。'
+  },
+  {
+    q: '以前是以隊伍參加，但登入後看不到舊期紀錄怎麼辦？',
+    a: '使用 Dashboard 底部的「曾以隊伍參加過往期數？」功能，選擇期數和隊伍名稱後點「認領」，即可將該期隊伍紀錄加入你的個人歷史中。每個期數每個帳號只能認領一次。'
   }
 ]
 
