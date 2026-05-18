@@ -13,6 +13,7 @@ function Admin() {
   const [newPeriod, setNewPeriod] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [extendDate, setExtendDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [periodMsg, setPeriodMsg] = useState(null)
@@ -96,6 +97,7 @@ function Admin() {
       setNewPeriod(period)
       setStartDate(periodRes.data.startDate || '')
       setEndDate(periodRes.data.endDate || '')
+      setExtendDate(periodRes.data.extendDate || '')
       setCoverImageUrl(periodRes.data.coverImageUrl || '')
       setScannedPeriod(period)
       setAdminList(adminRes.data.adminList || [])
@@ -121,6 +123,7 @@ function Admin() {
           period: newPeriod.trim(),
           startDate,
           endDate,
+          extendDate,
           coverImageUrl,
           secret: SECRET
         }
@@ -169,7 +172,7 @@ function Admin() {
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, coverImageUrl: url, secret: SECRET }
+        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, extendDate, coverImageUrl: url, secret: SECRET }
       })
       if (res.data.success) {
         setCoverMsg({ type: 'success', text: '封面圖已更新' })
@@ -578,8 +581,29 @@ function Admin() {
             />
           </div>
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>延長截止（選填）</label>
+            <input
+              type="date"
+              value={extendDate}
+              onChange={(e) => setExtendDate(e.target.value)}
+              style={{ margin: 0, fontSize: 13 }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            {extendDate && (
+              <button
+                onClick={() => setExtendDate('')}
+                style={{ marginTop: 18, fontSize: 12, padding: '4px 10px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#888' }}
+              >
+                清除延長日
+              </button>
+            )}
+          </div>
+        </div>
         <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-          設定後前台會顯示倒數計時，截止日當天 23:59 截止。
+          截止日當天 23:59 截止。設延長截止後，前台會在活動截止後才顯示延長中提示。
         </p>
 
         {periodMsg && (

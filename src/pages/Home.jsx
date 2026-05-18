@@ -11,7 +11,7 @@ function Home() {
     const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI)
     const scope = encodeURIComponent('identify')
     const navigate = useNavigate()
-    const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '' })
+    const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '', extendDate: '' })
     const [coverImageUrl, setCoverImageUrl] = useState('')
 
     useEffect(() => {
@@ -20,7 +20,8 @@ function Home() {
                 if (res.data) {
                     setActivityInfo({
                         startDate: res.data.startDate || '',
-                        endDate: res.data.endDate || ''
+                        endDate: res.data.endDate || '',
+                        extendDate: res.data.extendDate || ''
                     })
                     setCoverImageUrl(res.data.coverImageUrl || '')
                 }
@@ -38,7 +39,7 @@ function Home() {
             {coverImageUrl && (
                 <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
             )}
-            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} />
+            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} extendDate={activityInfo.extendDate} />
             <p>請用 Discord 登入</p>
             <button onClick={handleDiscordLogin}>
                 Discord 登入
