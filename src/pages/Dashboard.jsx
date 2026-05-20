@@ -13,6 +13,7 @@ function Dashboard() {
   const [currentPeriod, setCurrentPeriod] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [extendDate, setExtendDate] = useState('')
   const [coverImageUrl, setCoverImageUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -85,6 +86,7 @@ function Dashboard() {
           setCurrentPeriod(period)
           setStartDate(res.data.startDate || '')
           setEndDate(res.data.endDate || '')
+          setExtendDate(res.data.extendDate || '')
           setCoverImageUrl(res.data.coverImageUrl || '')
           if (res.data.records.length === 0) {
             navigate('/register', {
@@ -121,6 +123,7 @@ function Dashboard() {
         setCurrentPeriod(period)
         setStartDate(res.data.startDate || '')
         setEndDate(res.data.endDate || '')
+        setExtendDate(res.data.extendDate || '')
         setCoverImageUrl(res.data.coverImageUrl || '')
         saveUserToStorage(user)
 
@@ -354,7 +357,7 @@ function Dashboard() {
       {coverImageUrl && (
         <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
       )}
-      <ActivityInfo startDate={startDate} endDate={endDate} />
+      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} />
       <p style={{ textAlign: 'center', color: '#888', fontSize: 14 }}>請選擇本次要以哪個身分進入</p>
       <div style={{ display: 'flex', gap: 12 }}>
         <button
@@ -395,7 +398,7 @@ function Dashboard() {
       {coverImageUrl && (
         <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
       )}
-      <ActivityInfo startDate={startDate} endDate={endDate} />
+      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} />
 
       {/* 本期尚未建檔提示 */}
       {currentPeriod && !isRegisteredForCurrentPeriod() && (
