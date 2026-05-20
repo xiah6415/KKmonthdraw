@@ -1203,6 +1203,10 @@ function Admin() {
                               </div>
                             )
                           })()}
+                          {rec.socialLink && (
+                            <a href={rec.socialLink} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 11, color: '#e1306c' }}>🔗 社群打卡連結</a>
+                          )}
                           {rec.folderUrl && (
                             <a href={rec.folderUrl} target="_blank" rel="noreferrer"
                               style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>

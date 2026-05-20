@@ -27,6 +27,10 @@ function Dashboard() {
   const [editError, setEditError] = useState(null)
   // 回報上傳
   const [reportingIndex, setReportingIndex] = useState(null)
+  // 社群連結
+  const [socialLinkDraft, setSocialLinkDraft] = useState({})
+  const [socialLinkSaving, setSocialLinkSaving] = useState(null)
+  const [socialLinkMsg, setSocialLinkMsg] = useState({})
   // 認領團體紀錄
   const [claimOpen, setClaimOpen] = useState(false)
   const [claimPeriod, setClaimPeriod] = useState('')
@@ -304,6 +308,28 @@ function Dashboard() {
       if (!aStarts && bStarts) return 1
       return 0
     })
+
+  const handleSaveSocialLink = async (record) => {
+    const period = record.period
+    const url = (socialLinkDraft[period] ?? record.socialLink ?? '').trim()
+    setSocialLinkSaving(period)
+    setSocialLinkMsg(prev => ({ ...prev, [period]: null }))
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'updateSocialLink', discordId: discordUser.id, period, url, secret: SECRET }
+      })
+      if (res.data.success) {
+        setRecords(prev => prev.map(r => r.period === period ? { ...r, socialLink: url } : r))
+        setSocialLinkMsg(prev => ({ ...prev, [period]: { type: 'success', text: '已儲存' } }))
+      } else {
+        setSocialLinkMsg(prev => ({ ...prev, [period]: { type: 'error', text: '儲存失敗' } }))
+      }
+    } catch {
+      setSocialLinkMsg(prev => ({ ...prev, [period]: { type: 'error', text: '儲存失敗，請再試一次' } }))
+    } finally {
+      setSocialLinkSaving(null)
+    }
+  }
 
   const handleCancelReport = async (index, record) => {
     setReportingIndex(index)
@@ -588,6 +614,33 @@ function Dashboard() {
                 {reportingIndex === index ? '通知中...' : '已上傳作業'}
               </button>
             ))}
+
+            {record.period === currentPeriod && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="url"
+                    value={socialLinkDraft[record.period] ?? record.socialLink ?? ''}
+                    onChange={e => setSocialLinkDraft(prev => ({ ...prev, [record.period]: e.target.value }))}
+                    placeholder="貼上 IG、Twitter 等打卡連結"
+                    style={{ margin: 0, flex: 1, fontSize: 13 }}
+                  />
+                  <button
+                    onClick={() => handleSaveSocialLink(record)}
+                    disabled={socialLinkSaving === record.period}
+                    style={{ whiteSpace: 'nowrap', fontSize: 12, padding: '8px 12px', background: '#5865F2' }}
+                  >
+                    {socialLinkSaving === record.period ? '儲存中...' : '儲存'}
+                  </button>
+                </div>
+                {socialLinkMsg[record.period] && (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 'bold', color: socialLinkMsg[record.period].type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                    {socialLinkMsg[record.period].text}
+                  </p>
+                )}
+              </div>
+            )}
 
             {record.period === currentPeriod && record.folderUrl && (
               <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
