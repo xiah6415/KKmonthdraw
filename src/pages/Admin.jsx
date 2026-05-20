@@ -66,6 +66,8 @@ function Admin() {
 
   // 全勤調整
   const [attendanceUpdating, setAttendanceUpdating] = useState(null)
+  // 已回報調整
+  const [reportUpdating, setReportUpdating] = useState(null)
 
   // 新增歷史參加者
   const [legacyFormOpen, setLegacyFormOpen] = useState(false)
@@ -439,6 +441,28 @@ function Admin() {
       console.error(err)
     } finally {
       setAttendanceUpdating(null)
+    }
+  }
+
+  const handleAdminToggleReport = async (rec, newStatus) => {
+    const key = `${rec.discordId}_${rec.period}`
+    setReportUpdating(key)
+    try {
+      const action = newStatus === '已完成' ? 'updateReportStatus' : 'cancelReportStatus'
+      const res = await axios.get(API_URL, {
+        params: { action, discordId: rec.discordId, period: rec.period, secret: SECRET }
+      })
+      if (res.data.success) {
+        setAllRecords(prev => prev.map(r =>
+          r.discordId === rec.discordId && r.period === rec.period
+            ? { ...r, reportStatus: newStatus, reportTime: newStatus === '已完成' ? (res.data.reportTime || new Date().toISOString()) : '' }
+            : r
+        ))
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setReportUpdating(null)
     }
   }
 
@@ -1141,21 +1165,33 @@ function Admin() {
                               ✅ 回報時間：{rec.reportTime.split('T')[0]}
                             </p>
                           )}
-                          {rec.period !== currentPeriod && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
-                              {['全勤', '未全勤'].map(status => (
-                                <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
-                                  disabled={attendanceUpdating === `${rec.discordId}_${rec.period}`}
-                                  style={{ fontSize: 11, padding: '3px 10px',
-                                    background: rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
-                                    color: rec.reportStatus === status ? 'white' : '#666',
-                                    border: `1px solid ${rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
-                                  {status}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: '#888' }}>已回報：</span>
+                            {[['已完成', '已回報'], ['', '未回報']].map(([status, label]) => (
+                              <button key={status || 'none'}
+                                onClick={() => handleAdminToggleReport(rec, status)}
+                                disabled={reportUpdating === key}
+                                style={{ fontSize: 11, padding: '3px 10px',
+                                  background: rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#f0f0f0',
+                                  color: rec.reportStatus === status ? 'white' : '#666',
+                                  border: `1px solid ${rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#ddd'}` }}>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
+                            {['全勤', '未全勤'].map(status => (
+                              <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
+                                disabled={attendanceUpdating === key}
+                                style={{ fontSize: 11, padding: '3px 10px',
+                                  background: rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                                  color: rec.reportStatus === status ? 'white' : '#666',
+                                  border: `1px solid ${rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
+                                {status}
+                              </button>
+                            ))}
+                          </div>
                           {(() => {
                             const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
                             if (!sub) return null
