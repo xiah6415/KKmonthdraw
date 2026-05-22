@@ -515,10 +515,11 @@ function Admin() {
         sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
         sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
         sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
-        r.folderUrl || ''
+        r.folderUrl || '',
+        r.socialLink || ''
       ]
     })
-    const header = ['暱稱', 'Discord ID', '期數', '類型', '隊伍', '回報狀態', '基礎', '進階', '心得', '資料夾']
+    const header = ['暱稱', 'Discord ID', '期數', '類型', '隊伍', '回報狀態', '基礎', '進階', '心得', '資料夾', '社群打卡連結']
     const csv = [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -1062,6 +1063,11 @@ function Admin() {
                             ? <span className="report-badge--done">✅ 已回報</span>
                             : <span className="report-badge--pending">⏳ 未回報</span>
                           }
+                          {rec.socialLink && (
+                            <a href={rec.socialLink} target="_blank" rel="noreferrer"
+                              title={rec.socialLink}
+                              style={{ fontSize: 12, color: '#e1306c', textDecoration: 'none' }}>🔗 打卡</a>
+                          )}
                         </div>
                         {!isEditing && (
                           <button className="btn-edit" onClick={() => startEditRecord(rec)}>編輯</button>
@@ -1204,8 +1210,13 @@ function Admin() {
                             )
                           })()}
                           {rec.socialLink && (
-                            <a href={rec.socialLink} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 11, color: '#e1306c' }}>🔗 社群打卡連結</a>
+                            <div style={{ fontSize: 11, color: '#888' }}>
+                              🔗 社群打卡：
+                              <a href={rec.socialLink} target="_blank" rel="noreferrer"
+                                style={{ color: '#e1306c', wordBreak: 'break-all' }}>
+                                {rec.socialLink}
+                              </a>
+                            </div>
                           )}
                           {rec.folderUrl && (
                             <a href={rec.folderUrl} target="_blank" rel="noreferrer"
