@@ -17,7 +17,9 @@ function Register() {
   const [success, setSuccess] = useState(null) // { folderName, folderUrl }
   const [errorMsg, setErrorMsg] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
-  const [selectedPeriod, setSelectedPeriod] = useState('第一期')
+  const [isMakeup, setIsMakeup] = useState(false)
+  const [availablePeriods, setAvailablePeriods] = useState([])
+  const [selectedPeriod, setSelectedPeriod] = useState('')
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [claimMatches, setClaimMatches] = useState([])
   const [claimChecked, setClaimChecked] = useState({})
@@ -33,10 +35,15 @@ function Register() {
         if (location.state?.discordUser) {
           const user = location.state.discordUser
           const period = location.state.currentPeriod || ''
+          const mk = !!location.state.isMakeup
+          const allP = location.state.availablePeriods || []
           const records = location.state.records || []
           setDiscordUser(user)
           setCurrentPeriod(period)
-          if (period && records.some(r => r.period === period)) {
+          setIsMakeup(mk)
+          setAvailablePeriods(allP)
+          if (allP.length > 0) setSelectedPeriod(allP[0].name)
+          if (!mk && period && records.some(r => r.period === period)) {
             setAlreadyRegistered(true)
           }
           setLoading(false)
@@ -98,7 +105,6 @@ function Register() {
     if (type === 'team' && !teamName.trim()) { setErrorMsg('請填入隊伍名稱'); return }
 
     const emails = googleAccounts.filter(a => a.trim() !== '')
-    const isMakeup = currentPeriod === '補交期'
     const excludePeriod = isMakeup ? selectedPeriod : currentPeriod
 
     setSubmitting(true)
@@ -126,7 +132,6 @@ function Register() {
     setShowClaimModal(false)
     setSubmitting(true)
     try {
-      const isMakeup = currentPeriod === '補交期'
       const res = await axios.get(API_URL, {
         params: {
           action: 'createFolder',
@@ -188,8 +193,8 @@ function Register() {
       <div className="result-card result-card--already">
         <div className="result-icon">✓</div>
         <h2>你已建檔本期</h2>
-        {(currentPeriod === '補交期' ? selectedPeriod : currentPeriod) && (
-          <p className="result-sub">{currentPeriod === '補交期' ? selectedPeriod : currentPeriod} 已有建檔紀錄</p>
+        {(isMakeup ? selectedPeriod : currentPeriod) && (
+          <p className="result-sub">{isMakeup ? selectedPeriod : currentPeriod} 已有建檔紀錄</p>
         )}
         <button onClick={() => navigate('/dashboard', { state: { discordUser } })}>
           返回 Dashboard
@@ -260,24 +265,21 @@ function Register() {
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
       {/* 補交期：期數選擇 */}
-      {currentPeriod === '補交期' && (
+      {isMakeup && availablePeriods.length > 0 && (
         <div className="form-section">
           <label className="form-label">
             <span className="label-icon">📅</span> 補交期數
           </label>
           <div className="type-toggle">
-            <button
-              className={selectedPeriod === '第一期' ? 'toggle-btn active' : 'toggle-btn'}
-              onClick={() => setSelectedPeriod('第一期')}
-            >
-              第一期
-            </button>
-            <button
-              className={selectedPeriod === '第二期' ? 'toggle-btn active' : 'toggle-btn'}
-              onClick={() => setSelectedPeriod('第二期')}
-            >
-              第二期
-            </button>
+            {availablePeriods.map(p => (
+              <button
+                key={p.name}
+                className={selectedPeriod === p.name ? 'toggle-btn active' : 'toggle-btn'}
+                onClick={() => setSelectedPeriod(p.name)}
+              >
+                {p.name}
+              </button>
+            ))}
           </div>
         </div>
       )}

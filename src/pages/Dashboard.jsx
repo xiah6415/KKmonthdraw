@@ -11,6 +11,8 @@ function Dashboard() {
   const [records, setRecords] = useState([])
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
+  const [isMakeup, setIsMakeup] = useState(false)
+  const [availablePeriods, setAvailablePeriods] = useState([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [extendDate, setExtendDate] = useState('')
@@ -87,14 +89,18 @@ function Dashboard() {
             return
           }
           const period = res.data.currentPeriod || ''
+          const mk = !!res.data.isMakeup
+          const allP = (res.data.periods || []).filter(p => p.name !== '補交期')
           setCurrentPeriod(period)
+          setIsMakeup(mk)
+          setAvailablePeriods(allP)
           setStartDate(res.data.startDate || '')
           setEndDate(res.data.endDate || '')
           setExtendDate(res.data.extendDate || '')
           setCoverImageUrl(res.data.coverImageUrl || '')
           if (res.data.records.length === 0) {
             navigate('/register', {
-              state: { discordUser: storedUser, currentPeriod: period, records: [] }
+              state: { discordUser: storedUser, currentPeriod: period, isMakeup: mk, availablePeriods: allP, records: [] }
             })
           } else {
             setRecords(res.data.records)
@@ -121,10 +127,14 @@ function Dashboard() {
 
         const user = res.data.user
         const period = res.data.currentPeriod || ''
+        const mk = !!res.data.isMakeup
+        const allP = (res.data.periods || []).filter(p => p.name !== '補交期')
         const recs = res.data.records || []
 
         setDiscordUser(user)
         setCurrentPeriod(period)
+        setIsMakeup(mk)
+        setAvailablePeriods(allP)
         setStartDate(res.data.startDate || '')
         setEndDate(res.data.endDate || '')
         setExtendDate(res.data.extendDate || '')
@@ -133,7 +143,7 @@ function Dashboard() {
 
         if (recs.length === 0) {
           navigate('/register', {
-            state: { discordUser: user, currentPeriod: period, records: [] }
+            state: { discordUser: user, currentPeriod: period, isMakeup: mk, availablePeriods: allP, records: [] }
           })
         } else {
           setRecords(recs)
@@ -151,7 +161,7 @@ function Dashboard() {
     init()
   }, [])
 
-  const isMakeupPeriod = currentPeriod === '補交期'
+  const isMakeupPeriod = isMakeup
   const isActiveRecord = (record) =>
     isMakeupPeriod ? !!record.folderUrl : record.period === currentPeriod
 
@@ -440,7 +450,7 @@ function Dashboard() {
           <button
             className="cta-btn"
             onClick={() => navigate('/register', {
-              state: { discordUser, currentPeriod, records }
+              state: { discordUser, currentPeriod, isMakeup, availablePeriods, records }
             })}
           >
             {isMakeupPeriod ? '補交報名' : '立即建檔'}

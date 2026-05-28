@@ -10,14 +10,15 @@ const SECRET = import.meta.env.VITE_API_SECRET
 function Admin() {
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
-  const [newPeriod, setNewPeriod] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [extendDate, setExtendDate] = useState('')
-  const [makeupRootFolder, setMakeupRootFolder] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [periodMsg, setPeriodMsg] = useState(null)
+
+  // 期數列表管理
+  const [periods, setPeriods] = useState([])
+  const [selectedPeriodName, setSelectedPeriodName] = useState('')
+  const [editPeriod, setEditPeriod] = useState(null) // {name, startDate, endDate, extendDate, rootFolderId, makeupRootFolder?}
+  const [isNewPeriod, setIsNewPeriod] = useState(false)
+  const [periodSaving, setPeriodSaving] = useState(false)
 
   // 管理員名單
   const [adminList, setAdminList] = useState([])
@@ -91,19 +92,17 @@ function Admin() {
 
   const fetchInitData = async () => {
     try {
-      const [periodRes, adminRes] = await Promise.all([
-        axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } }),
+      const [periodsRes, adminRes] = await Promise.all([
+        axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } }),
         axios.get(API_URL, { params: { action: 'getAdminIds', secret: SECRET } })
       ])
-      const period = periodRes.data.currentPeriod || ''
-      setCurrentPeriod(period)
-      setNewPeriod(period)
-      setStartDate(periodRes.data.startDate || '')
-      setEndDate(periodRes.data.endDate || '')
-      setExtendDate(periodRes.data.extendDate || '')
-      setCoverImageUrl(periodRes.data.coverImageUrl || '')
-      setMakeupRootFolder(periodRes.data.makeupRootFolder || '')
-      setScannedPeriod(period)
+      const allPeriods = periodsRes.data.periods || []
+      setPeriods(allPeriods)
+      setCoverImageUrl(periodsRes.data.coverImageUrl || '')
+      // 顯示用：自動判斷當前期數（簡易版，前端不做日期計算，顯示最後一期名稱即可）
+      const activeName = allPeriods.length > 0 ? allPeriods[allPeriods.length - 1].name : ''
+      setCurrentPeriod(activeName)
+      setScannedPeriod(activeName)
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
@@ -112,37 +111,69 @@ function Admin() {
     }
   }
 
-  // ── 期數 ──────────────────────────────────────────────
-  const handleSavePeriod = async () => {
-    if (!newPeriod.trim()) {
-      setPeriodMsg({ type: 'error', text: '期數不能為空' })
+  // ── 期數列表管理 ──────────────────────────────────────
+  const handleSelectPeriod = (name) => {
+    if (name === '_new_') {
+      setIsNewPeriod(true)
+      setSelectedPeriodName('_new_')
+      setEditPeriod({ name: '', startDate: '', endDate: '', extendDate: '', rootFolderId: '' })
       return
     }
-    setSaving(true)
+    setIsNewPeriod(false)
+    setSelectedPeriodName(name)
+    const found = periods.find(p => p.name === name)
+    setEditPeriod(found ? { ...found } : null)
+  }
+
+  const handleSavePeriodItem = async () => {
+    if (!editPeriod) return
+    if (!editPeriod.name.trim()) { setPeriodMsg({ type: 'error', text: '期數名稱不能為空' }); return }
+    setPeriodSaving(true)
     setPeriodMsg(null)
     try {
+      let updated
+      if (isNewPeriod) {
+        updated = [...periods, { ...editPeriod, name: editPeriod.name.trim() }]
+      } else {
+        updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod } : p)
+      }
       const res = await axios.get(API_URL, {
-        params: {
-          action: 'setPeriod',
-          period: newPeriod.trim(),
-          startDate,
-          endDate,
-          extendDate,
-          coverImageUrl,
-          makeupRootFolder,
-          secret: SECRET
-        }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), secret: SECRET }
       })
       if (res.data.success) {
-        setCurrentPeriod(newPeriod.trim())
-        setPeriodMsg({ type: 'success', text: `已更新為「${newPeriod.trim()}」` })
+        setPeriods(updated)
+        setSelectedPeriodName(editPeriod.name.trim())
+        setIsNewPeriod(false)
+        setPeriodMsg({ type: 'success', text: `「${editPeriod.name.trim()}」已儲存` })
       } else {
-        setPeriodMsg({ type: 'error', text: '更新失敗：' + (res.data.error || '未知錯誤') })
+        setPeriodMsg({ type: 'error', text: '儲存失敗' })
       }
     } catch {
-      setPeriodMsg({ type: 'error', text: '更新失敗，請再試一次' })
+      setPeriodMsg({ type: 'error', text: '儲存失敗，請再試一次' })
     } finally {
-      setSaving(false)
+      setPeriodSaving(false)
+    }
+  }
+
+  const handleDeletePeriodItem = async () => {
+    if (!selectedPeriodName || isNewPeriod) return
+    if (!window.confirm(`確定要刪除「${selectedPeriodName}」嗎？`)) return
+    setPeriodSaving(true)
+    try {
+      const updated = periods.filter(p => p.name !== selectedPeriodName)
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), secret: SECRET }
+      })
+      if (res.data.success) {
+        setPeriods(updated)
+        setSelectedPeriodName('')
+        setEditPeriod(null)
+        setPeriodMsg({ type: 'success', text: `已刪除「${selectedPeriodName}」` })
+      }
+    } catch {
+      setPeriodMsg({ type: 'error', text: '刪除失敗' })
+    } finally {
+      setPeriodSaving(false)
     }
   }
 
@@ -177,7 +208,7 @@ function Admin() {
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, extendDate, coverImageUrl: url, makeupRootFolder, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(periods), coverImageUrl: url, secret: SECRET }
       })
       if (res.data.success) {
         setCoverMsg({ type: 'success', text: '封面圖已更新' })
@@ -566,90 +597,106 @@ function Admin() {
       {/* ── 期數管理 ── */}
       <div className="admin-section">
         <h2 className="admin-section-title">📅 期數管理</h2>
-        <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
-          目前期數：<strong style={{ color: '#5865F2' }}>{currentPeriod || '（未設定）'}</strong>
-        </p>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <input
-            type="text"
-            value={newPeriod}
-            onChange={(e) => setNewPeriod(e.target.value)}
-            placeholder="例：第10期 或 2025-06"
-            style={{ margin: 0, flex: 1 }}
-          />
-          <button
-            onClick={handleSavePeriod}
-            disabled={saving}
-            style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
+        {/* 下拉選單 */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <select
+            value={selectedPeriodName}
+            onChange={e => handleSelectPeriod(e.target.value)}
+            style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
           >
-            {saving ? '儲存中...' : '更新'}
-          </button>
+            <option value="">— 選擇期數 —</option>
+            {periods.map(p => (
+              <option key={p.name} value={p.name}>{p.name === '補交期' ? '🎨 補交期' : p.name}</option>
+            ))}
+            <option value="_new_">＋ 新增期數</option>
+          </select>
         </div>
 
-        {/* 活動日期 */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動開始</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ margin: 0, fontSize: 13 }}
-            />
-          </div>
-          <span style={{ color: '#aaa', marginTop: 18 }}>～</span>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動截止</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ margin: 0, fontSize: 13 }}
-            />
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>延長截止（選填）</label>
-            <input
-              type="date"
-              value={extendDate}
-              onChange={(e) => setExtendDate(e.target.value)}
-              style={{ margin: 0, fontSize: 13 }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            {extendDate && (
-              <button
-                onClick={() => setExtendDate('')}
-                style={{ marginTop: 18, fontSize: 12, padding: '4px 10px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#888' }}
-              >
-                清除延長日
-              </button>
+        {/* 編輯區 */}
+        {editPeriod && (
+          <div style={{ background: '#f9f9f9', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* 名稱（新增時可編輯） */}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>期數名稱</label>
+              <input
+                type="text"
+                value={editPeriod.name}
+                onChange={e => setEditPeriod(p => ({ ...p, name: e.target.value }))}
+                disabled={!isNewPeriod}
+                placeholder="例：第三期 / 補交期"
+                style={{ margin: 0, fontSize: 13, background: isNewPeriod ? '#fff' : '#f0f0f0' }}
+              />
+            </div>
+
+            {/* 活動日期 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>開始日期</label>
+                <input type="date" value={editPeriod.startDate || ''} onChange={e => setEditPeriod(p => ({ ...p, startDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>截止日期</label>
+                <input type="date" value={editPeriod.endDate || ''} onChange={e => setEditPeriod(p => ({ ...p, endDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>延長截止（選填）</label>
+                <input type="date" value={editPeriod.extendDate || ''} onChange={e => setEditPeriod(p => ({ ...p, extendDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+              {editPeriod.extendDate && (
+                <button onClick={() => setEditPeriod(p => ({ ...p, extendDate: '' }))} style={{ fontSize: 12, padding: '8px 10px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#888', marginBottom: 0 }}>
+                  清除
+                </button>
+              )}
+            </div>
+
+            {/* Folder ID（補交期顯示 makeupRootFolder，其他顯示 rootFolderId） */}
+            {editPeriod.name === '補交期' ? (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>補交根目錄 Folder ID</label>
+                <input
+                  type="text"
+                  value={editPeriod.makeupRootFolder || ''}
+                  onChange={e => setEditPeriod(p => ({ ...p, makeupRootFolder: e.target.value }))}
+                  placeholder="Google Drive folder ID"
+                  style={{ margin: 0, fontSize: 13 }}
+                />
+              </div>
+            ) : (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>資料夾根目錄 Folder ID</label>
+                <input
+                  type="text"
+                  value={editPeriod.rootFolderId || ''}
+                  onChange={e => setEditPeriod(p => ({ ...p, rootFolderId: e.target.value }))}
+                  placeholder="Google Drive folder ID"
+                  style={{ margin: 0, fontSize: 13 }}
+                />
+              </div>
             )}
-          </div>
-        </div>
-        <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-          截止日當天 23:59 截止。設延長截止後，前台會在活動截止後才顯示延長中提示。
-        </p>
 
-        <div style={{ marginTop: 10 }}>
-          <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>補交根目錄 Folder ID（選填，補交期才需要）</label>
-          <input
-            type="text"
-            value={makeupRootFolder}
-            onChange={(e) => setMakeupRootFolder(e.target.value)}
-            placeholder="Google Drive folder ID"
-            style={{ margin: 0, fontSize: 13 }}
-          />
-        </div>
+            {/* 儲存 / 刪除按鈕 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleSavePeriodItem} disabled={periodSaving} style={{ flex: 2 }}>
+                {periodSaving ? '儲存中...' : '儲存'}
+              </button>
+              {!isNewPeriod && (
+                <button onClick={handleDeletePeriodItem} disabled={periodSaving} style={{ flex: 1, background: '#e74c3c' }}>
+                  刪除
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <p style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>
+          截止日當天 23:59 截止。系統自動以今日是否在日期範圍內判斷當前期數。
+        </p>
 
         {periodMsg && (
-          <p style={{
-            marginTop: 8, fontSize: 13, fontWeight: 'bold',
-            color: periodMsg.type === 'success' ? '#2ecc71' : '#e74c3c'
-          }}>
+          <p style={{ marginTop: 8, fontSize: 13, fontWeight: 'bold', color: periodMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
             {periodMsg.type === 'success' ? '✓ ' : '✕ '}{periodMsg.text}
           </p>
         )}
