@@ -100,8 +100,8 @@ function Admin() {
       let allPeriods = periodsRes.data.periods || []
       let coverUrl = periodsRes.data.coverImageUrl || ''
 
-      // 舊 GAS 不認識 getPeriodsConfig，fallback 到 getPeriod
-      if (!periodsRes.data.periods) {
+      // periodsConfig 尚未設定（空陣列）或舊 GAS，fallback 到 getPeriod
+      if (!periodsRes.data.periods?.length) {
         const fallback = await axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
         coverUrl = fallback.data.coverImageUrl || ''
         const name = fallback.data.currentPeriod
