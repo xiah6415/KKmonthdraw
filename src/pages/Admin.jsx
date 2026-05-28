@@ -291,7 +291,7 @@ function Admin() {
   const getDisplayName = (user) => user?.global_name || user?.username || user?.id || ''
 
   // ── 篩選邏輯 ───────────────────────────────────────────
-  const periods = [...new Set(allRecords.map(r => r.period))].sort()
+  const periodNames = [...new Set(allRecords.map(r => r.period))].sort()
 
   const filteredRecords = allRecords
     .filter(rec => {
@@ -342,7 +342,7 @@ function Admin() {
     pending: recs.filter(r => r.reportStatus !== '已完成').length,
   })
 
-  const statsByPeriod = periods.map(p => {
+  const statsByPeriod = periodNames.map(p => {
     const recs = allRecords.filter(r => r.period === p)
     const { done, pending } = getReportStats(recs)
     return {
@@ -962,7 +962,7 @@ function Admin() {
                   color: filterPeriod === '' ? 'white' : '#555'
                 }}
               >全部</button>
-              {periods.map(p => (
+              {periodNames.map(p => (
                 <button
                   key={p}
                   onClick={() => setFilterPeriodAndReset(p)}
