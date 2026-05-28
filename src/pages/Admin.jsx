@@ -14,6 +14,7 @@ function Admin() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [extendDate, setExtendDate] = useState('')
+  const [makeupRootFolder, setMakeupRootFolder] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [periodMsg, setPeriodMsg] = useState(null)
@@ -101,6 +102,7 @@ function Admin() {
       setEndDate(periodRes.data.endDate || '')
       setExtendDate(periodRes.data.extendDate || '')
       setCoverImageUrl(periodRes.data.coverImageUrl || '')
+      setMakeupRootFolder(periodRes.data.makeupRootFolder || '')
       setScannedPeriod(period)
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
@@ -127,6 +129,7 @@ function Admin() {
           endDate,
           extendDate,
           coverImageUrl,
+          makeupRootFolder,
           secret: SECRET
         }
       })
@@ -174,7 +177,7 @@ function Admin() {
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, extendDate, coverImageUrl: url, secret: SECRET }
+        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, extendDate, coverImageUrl: url, makeupRootFolder, secret: SECRET }
       })
       if (res.data.success) {
         setCoverMsg({ type: 'success', text: '封面圖已更新' })
@@ -630,6 +633,17 @@ function Admin() {
         <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
           截止日當天 23:59 截止。設延長截止後，前台會在活動截止後才顯示延長中提示。
         </p>
+
+        <div style={{ marginTop: 10 }}>
+          <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>補交根目錄 Folder ID（選填，補交期才需要）</label>
+          <input
+            type="text"
+            value={makeupRootFolder}
+            onChange={(e) => setMakeupRootFolder(e.target.value)}
+            placeholder="Google Drive folder ID"
+            style={{ margin: 0, fontSize: 13 }}
+          />
+        </div>
 
         {periodMsg && (
           <p style={{

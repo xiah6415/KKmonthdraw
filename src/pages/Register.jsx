@@ -17,7 +17,12 @@ function Register() {
   const [success, setSuccess] = useState(null) // { folderName, folderUrl }
   const [errorMsg, setErrorMsg] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
+  const [selectedPeriod, setSelectedPeriod] = useState('第一期')
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const [claimMatches, setClaimMatches] = useState([])
+  const [claimChecked, setClaimChecked] = useState({})
+  const [showClaimModal, setShowClaimModal] = useState(false)
+  const [pendingSubmitEmails, setPendingSubmitEmails] = useState([])
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -88,21 +93,40 @@ function Register() {
 
   const handleSubmit = async () => {
     setErrorMsg(null)
-    if (!serverNickname.trim()) {
-      setErrorMsg('請填入伺服器暱稱')
-      return
-    }
-    if (googleAccounts.filter(a => a.trim() !== '').length === 0) {
-      setErrorMsg('請至少填入一個 Google 帳號')
-      return
-    }
-    if (type === 'team' && !teamName.trim()) {
-      setErrorMsg('請填入隊伍名稱')
-      return
-    }
+    if (!serverNickname.trim()) { setErrorMsg('請填入伺服器暱稱'); return }
+    if (googleAccounts.filter(a => a.trim() !== '').length === 0) { setErrorMsg('請至少填入一個 Google 帳號'); return }
+    if (type === 'team' && !teamName.trim()) { setErrorMsg('請填入隊伍名稱'); return }
+
+    const emails = googleAccounts.filter(a => a.trim() !== '')
+    const isMakeup = currentPeriod === '補交期'
+    const excludePeriod = isMakeup ? selectedPeriod : currentPeriod
 
     setSubmitting(true)
     try {
+      const checkRes = await axios.get(API_URL, {
+        params: { action: 'findTeamsByEmail', emails: emails.join(','), excludePeriod, secret: SECRET }
+      })
+      const matches = checkRes.data.matches || []
+      if (matches.length > 0) {
+        setClaimMatches(matches)
+        setClaimChecked(Object.fromEntries(matches.map((_, i) => [i, true])))
+        setPendingSubmitEmails(emails)
+        setShowClaimModal(true)
+        setSubmitting(false)
+        return
+      }
+    } catch (err) {
+      console.error('email check error', err)
+    }
+
+    await doSubmit([])
+  }
+
+  const doSubmit = async (confirmedMatches) => {
+    setShowClaimModal(false)
+    setSubmitting(true)
+    try {
+      const isMakeup = currentPeriod === '補交期'
       const res = await axios.get(API_URL, {
         params: {
           action: 'createFolder',
@@ -113,11 +137,28 @@ function Register() {
           discordUsername: discordUser.username || '',
           serverNickname: serverNickname.trim(),
           googleAccounts: googleAccounts.filter(a => a.trim() !== '').join(','),
+          ...(isMakeup && { targetPeriod: selectedPeriod }),
           secret: SECRET
         }
       })
       if (res.data.success) {
-        setSuccess({ folderName: res.data.folderName, folderUrl: res.data.folderUrl })
+        for (const match of confirmedMatches) {
+          try {
+            await axios.get(API_URL, {
+              params: {
+                action: 'claimRecordByEmail',
+                username: discordUser.username || discordUser.id,
+                period: match.period,
+                teamName: match.teamName,
+                attendanceStatus: match.reportStatus,
+                secret: SECRET
+              }
+            })
+          } catch (err) {
+            console.error('claim error', err)
+          }
+        }
+        setSuccess({ folderName: res.data.folderName, folderUrl: res.data.folderUrl, period: res.data.currentPeriod })
         if (res.data.currentPeriod) setCurrentPeriod(res.data.currentPeriod)
       } else if (res.data.error === 'already_registered') {
         setAlreadyRegistered(true)
@@ -147,7 +188,9 @@ function Register() {
       <div className="result-card result-card--already">
         <div className="result-icon">✓</div>
         <h2>你已建檔本期</h2>
-        {currentPeriod && <p className="result-sub">{currentPeriod} 已有建檔紀錄</p>}
+        {(currentPeriod === '補交期' ? selectedPeriod : currentPeriod) && (
+          <p className="result-sub">{currentPeriod === '補交期' ? selectedPeriod : currentPeriod} 已有建檔紀錄</p>
+        )}
         <button onClick={() => navigate('/dashboard', { state: { discordUser } })}>
           返回 Dashboard
         </button>
@@ -167,7 +210,7 @@ function Register() {
       <div className="result-card result-card--success">
         <div className="result-icon result-icon--success">✓</div>
         <h2>建檔成功！</h2>
-        {currentPeriod && <p className="result-period">{currentPeriod}</p>}
+        {success.period && <p className="result-period">{success.period}</p>}
         <p className="result-folder-name">{success.folderName}</p>
         <a
           href={success.folderUrl}
@@ -215,6 +258,29 @@ function Register() {
 
       {/* 錯誤訊息 */}
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
+
+      {/* 補交期：期數選擇 */}
+      {currentPeriod === '補交期' && (
+        <div className="form-section">
+          <label className="form-label">
+            <span className="label-icon">📅</span> 補交期數
+          </label>
+          <div className="type-toggle">
+            <button
+              className={selectedPeriod === '第一期' ? 'toggle-btn active' : 'toggle-btn'}
+              onClick={() => setSelectedPeriod('第一期')}
+            >
+              第一期
+            </button>
+            <button
+              className={selectedPeriod === '第二期' ? 'toggle-btn active' : 'toggle-btn'}
+              onClick={() => setSelectedPeriod('第二期')}
+            >
+              第二期
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 伺服器暱稱 */}
       <div className="form-section">
@@ -305,6 +371,48 @@ function Register() {
       >
         ? 使用說明
       </button>
+
+      {/* 認領舊紀錄 Modal */}
+      {showClaimModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: 20
+        }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380 }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 17 }}>找到舊期紀錄</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#555' }}>
+              你的 Google 帳號在以下期數有參加記錄，是否一併認領至你的帳號？
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {claimMatches.map((match, i) => (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={claimChecked[i] ?? true}
+                    onChange={e => setClaimChecked(prev => ({ ...prev, [i]: e.target.checked }))}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span>{match.period}「<strong>{match.teamName}</strong>」</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                style={{ flex: 1, background: '#5865F2', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
+                onClick={() => doSubmit(claimMatches.filter((_, i) => claimChecked[i]))}
+              >
+                確認
+              </button>
+              <button
+                style={{ flex: 1, background: '#eee', color: '#555', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
+                onClick={() => doSubmit([])}
+              >
+                略過
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

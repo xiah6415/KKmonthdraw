@@ -13,6 +13,7 @@ function Home() {
     const navigate = useNavigate()
     const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '', extendDate: '' })
     const [coverImageUrl, setCoverImageUrl] = useState('')
+    const [currentPeriod, setCurrentPeriod] = useState('')
 
     useEffect(() => {
         axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
@@ -24,6 +25,7 @@ function Home() {
                         extendDate: res.data.extendDate || ''
                     })
                     setCoverImageUrl(res.data.coverImageUrl || '')
+                    setCurrentPeriod(res.data.currentPeriod || '')
                 }
             })
             .catch(() => {})
@@ -39,7 +41,7 @@ function Home() {
             {coverImageUrl && (
                 <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
             )}
-            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} extendDate={activityInfo.extendDate} />
+            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} extendDate={activityInfo.extendDate} currentPeriod={currentPeriod} />
             <p>請用 Discord 登入</p>
             <button onClick={handleDiscordLogin}>
                 Discord 登入

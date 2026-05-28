@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 
-function ActivityInfo({ startDate, endDate, extendDate }) {
+function ActivityInfo({ startDate, endDate, extendDate, currentPeriod }) {
   const [countdown, setCountdown] = useState('')
   const [phase, setPhase] = useState('active') // 'active' | 'extended' | 'ended'
 
   useEffect(() => {
-    if (!endDate) return
+    if (currentPeriod === '補交期' || !endDate) return
 
     const calc = () => {
       const now = new Date()
@@ -31,7 +31,15 @@ function ActivityInfo({ startDate, endDate, extendDate }) {
     calc()
     const timer = setInterval(calc, 60000)
     return () => clearInterval(timer)
-  }, [endDate, extendDate])
+  }, [endDate, extendDate, currentPeriod])
+
+  if (currentPeriod === '補交期') {
+    return (
+      <div className="activity-info">
+        <p className="activity-countdown">🎨 現在是補交期，可補交第一期或第二期作業！</p>
+      </div>
+    )
+  }
 
   if (!startDate && !endDate) return null
 

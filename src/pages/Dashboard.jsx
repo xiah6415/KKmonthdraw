@@ -151,6 +151,10 @@ function Dashboard() {
     init()
   }, [])
 
+  const isMakeupPeriod = currentPeriod === '補交期'
+  const isActiveRecord = (record) =>
+    isMakeupPeriod ? !!record.folderUrl : record.period === currentPeriod
+
   const isRegisteredForCurrentPeriod = () =>
     currentPeriod && records.some(r => r.period === currentPeriod)
 
@@ -383,7 +387,7 @@ function Dashboard() {
       {coverImageUrl && (
         <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
       )}
-      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} />
+      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} currentPeriod={currentPeriod} />
       <p style={{ textAlign: 'center', color: '#888', fontSize: 14 }}>請選擇本次要以哪個身分進入</p>
       <div style={{ display: 'flex', gap: 12 }}>
         <button
@@ -424,14 +428,14 @@ function Dashboard() {
       {coverImageUrl && (
         <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
       )}
-      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} />
+      <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} currentPeriod={currentPeriod} />
 
       {/* 本期尚未建檔提示 */}
       {currentPeriod && !isRegisteredForCurrentPeriod() && (
         <div className="cta-banner">
           <div>
-            <p className="cta-title">📋 {currentPeriod} 尚未建檔</p>
-            <p className="cta-sub">快來參加本期月月繪！</p>
+            <p className="cta-title">{isMakeupPeriod ? '🎨 補交報名入口' : `📋 ${currentPeriod} 尚未建檔`}</p>
+            <p className="cta-sub">{isMakeupPeriod ? '可補交第一期或第二期作業！' : '快來參加本期月月繪！'}</p>
           </div>
           <button
             className="cta-btn"
@@ -439,7 +443,7 @@ function Dashboard() {
               state: { discordUser, currentPeriod, records }
             })}
           >
-            立即建檔
+            {isMakeupPeriod ? '補交報名' : '立即建檔'}
           </button>
         </div>
       )}
@@ -461,7 +465,7 @@ function Dashboard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 16 }}>
                 {record.period}
-                {record.period === currentPeriod && (
+                {record.period === currentPeriod && !isMakeupPeriod && (
                   <span className="current-badge">本期</span>
                 )}
               </span>
@@ -477,14 +481,14 @@ function Dashboard() {
               <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
             )}
 
-            {record.period === currentPeriod && (
+            {isActiveRecord(record) && (
               <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
                 🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
               </p>
             )}
 
             {/* 非當期：顯示全勤狀態 */}
-            {record.period !== currentPeriod && (
+            {!isActiveRecord(record) && (
               <div style={{
                 display: 'inline-block',
                 marginTop: 4,
@@ -510,7 +514,7 @@ function Dashboard() {
             )}
 
             {/* 編輯 Google 帳號（展開區域，歷史紀錄不顯示） */}
-            {record.period === currentPeriod && (editingIndex === index ? (
+            {isActiveRecord(record) && (editingIndex === index ? (
               <div className="edit-section">
                 <p className="edit-title">✏️ 修改資料</p>
                 <div style={{ marginBottom: 10 }}>
@@ -587,7 +591,7 @@ function Dashboard() {
             ))}
 
             {/* 已上傳作業回報（歷史紀錄不顯示） */}
-            {record.period === currentPeriod && (record.reportStatus === '已完成' ? (
+            {isActiveRecord(record) && (record.reportStatus === '已完成' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="report-done" style={{ flex: 1 }}>
                   ✅ 通知成功
@@ -615,7 +619,7 @@ function Dashboard() {
               </button>
             ))}
 
-            {record.period === currentPeriod && (
+            {isActiveRecord(record) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -642,7 +646,7 @@ function Dashboard() {
               </div>
             )}
 
-            {record.period === currentPeriod && record.folderUrl && (
+            {isActiveRecord(record) && record.folderUrl && (
               <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                 <button style={{ width: '100%', marginTop: 4, padding: 10, fontSize: 14 }}>
                   📂 開啟資料夾
