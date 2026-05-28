@@ -96,10 +96,22 @@ function Admin() {
         axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } }),
         axios.get(API_URL, { params: { action: 'getAdminIds', secret: SECRET } })
       ])
-      const allPeriods = periodsRes.data.periods || []
+
+      let allPeriods = periodsRes.data.periods || []
+      let coverUrl = periodsRes.data.coverImageUrl || ''
+
+      // 舊 GAS 不認識 getPeriodsConfig，fallback 到 getPeriod
+      if (!periodsRes.data.periods) {
+        const fallback = await axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
+        coverUrl = fallback.data.coverImageUrl || ''
+        const name = fallback.data.currentPeriod
+        if (name) {
+          allPeriods = [{ name, startDate: fallback.data.startDate || '', endDate: fallback.data.endDate || '', extendDate: fallback.data.extendDate || '', rootFolderId: '' }]
+        }
+      }
+
       setPeriods(allPeriods)
-      setCoverImageUrl(periodsRes.data.coverImageUrl || '')
-      // 顯示用：自動判斷當前期數（簡易版，前端不做日期計算，顯示最後一期名稱即可）
+      setCoverImageUrl(coverUrl)
       const activeName = allPeriods.length > 0 ? allPeriods[allPeriods.length - 1].name : ''
       setCurrentPeriod(activeName)
       setScannedPeriod(activeName)
@@ -207,9 +219,15 @@ function Admin() {
       await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
-      const res = await axios.get(API_URL, {
+      // 新 GAS 用 setPeriodsConfig，舊 GAS fallback 到 setPeriod
+      let res = await axios.get(API_URL, {
         params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(periods), coverImageUrl: url, secret: SECRET }
       })
+      if (!res.data.success) {
+        res = await axios.get(API_URL, {
+          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, secret: SECRET }
+        })
+      }
       if (res.data.success) {
         setCoverMsg({ type: 'success', text: '封面圖已更新' })
       } else {
