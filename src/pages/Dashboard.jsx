@@ -12,6 +12,7 @@ function Dashboard() {
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
   const [isMakeup, setIsMakeup] = useState(false)
+  const [makeupActive, setMakeupActive] = useState(false)
   const [availablePeriods, setAvailablePeriods] = useState([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -90,9 +91,11 @@ function Dashboard() {
           }
           const period = res.data.currentPeriod || ''
           const mk = !!res.data.isMakeup
+          const mua = !!res.data.makeupActive
           const allP = (res.data.periods || []).filter(p => p.name !== '補交期')
           setCurrentPeriod(period)
           setIsMakeup(mk)
+          setMakeupActive(mua)
           setAvailablePeriods(allP)
           setStartDate(res.data.startDate || '')
           setEndDate(res.data.endDate || '')
@@ -128,12 +131,14 @@ function Dashboard() {
         const user = res.data.user
         const period = res.data.currentPeriod || ''
         const mk = !!res.data.isMakeup
+        const mua = !!res.data.makeupActive
         const allP = (res.data.periods || []).filter(p => p.name !== '補交期')
         const recs = res.data.records || []
 
         setDiscordUser(user)
         setCurrentPeriod(period)
         setIsMakeup(mk)
+        setMakeupActive(mua)
         setAvailablePeriods(allP)
         setStartDate(res.data.startDate || '')
         setEndDate(res.data.endDate || '')
@@ -441,19 +446,37 @@ function Dashboard() {
       <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} currentPeriod={currentPeriod} />
 
       {/* 本期尚未建檔提示 */}
-      {currentPeriod && !isRegisteredForCurrentPeriod() && (
+      {currentPeriod && !isMakeupPeriod && !isRegisteredForCurrentPeriod() && (
         <div className="cta-banner">
           <div>
-            <p className="cta-title">{isMakeupPeriod ? '🎨 補交報名入口' : `📋 ${currentPeriod} 尚未建檔`}</p>
-            <p className="cta-sub">{isMakeupPeriod ? '可補交第一期或第二期作業！' : '快來參加本期月月繪！'}</p>
+            <p className="cta-title">📋 {currentPeriod} 尚未建檔</p>
+            <p className="cta-sub">快來參加本期月月繪！</p>
           </div>
           <button
             className="cta-btn"
             onClick={() => navigate('/register', {
-              state: { discordUser, currentPeriod, isMakeup, availablePeriods, records }
+              state: { discordUser, currentPeriod, isMakeup: false, availablePeriods: [], records }
             })}
           >
-            {isMakeupPeriod ? '補交報名' : '立即建檔'}
+            立即建檔
+          </button>
+        </div>
+      )}
+
+      {/* 補交期入口（僅補交期，或補交期與正常期並行） */}
+      {(isMakeupPeriod || makeupActive) && (
+        <div className="cta-banner">
+          <div>
+            <p className="cta-title">🎨 補交報名入口</p>
+            <p className="cta-sub">可補交舊期作業！</p>
+          </div>
+          <button
+            className="cta-btn"
+            onClick={() => navigate('/register', {
+              state: { discordUser, currentPeriod, isMakeup: true, availablePeriods, records }
+            })}
+          >
+            補交報名
           </button>
         </div>
       )}
