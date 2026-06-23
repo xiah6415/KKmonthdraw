@@ -14,9 +14,12 @@ function Register() {
   const [googleAccounts, setGoogleAccounts] = useState([''])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState(null)
+  const [success, setSuccess] = useState(null) // { folderName, folderUrl }
   const [errorMsg, setErrorMsg] = useState(null)
-  const [targetPeriod, setTargetPeriod] = useState('')
+  const [currentPeriod, setCurrentPeriod] = useState('')
+  const [isMakeup, setIsMakeup] = useState(false)
+  const [availablePeriods, setAvailablePeriods] = useState([])
+  const [selectedPeriod, setSelectedPeriod] = useState('')
   const [alreadyRegistered, setAlreadyRegistered] = useState(false)
   const [claimMatches, setClaimMatches] = useState([])
   const [claimChecked, setClaimChecked] = useState({})
@@ -28,19 +31,26 @@ function Register() {
   useEffect(() => {
     const init = async () => {
       try {
+        // 如果 Dashboard 傳來了完整 state（user + records + period），直接用
         if (location.state?.discordUser) {
           const user = location.state.discordUser
-          const period = location.state.targetPeriod || ''
+          const period = location.state.currentPeriod || ''
+          const mk = !!location.state.isMakeup
+          const allP = location.state.availablePeriods || []
           const records = location.state.records || []
           setDiscordUser(user)
-          setTargetPeriod(period)
-          if (period && records.some(r => r.period === period)) {
+          setCurrentPeriod(period)
+          setIsMakeup(mk)
+          setAvailablePeriods(allP)
+          if (allP.length > 0) setSelectedPeriod(allP[0].name)
+          if (!mk && period && records.some(r => r.period === period)) {
             setAlreadyRegistered(true)
           }
           setLoading(false)
           return
         }
 
+        // OAuth 流程：用 code 換 Discord user
         const params = new URLSearchParams(window.location.search)
         const code = params.get('code')
         if (!code) {
@@ -56,6 +66,7 @@ function Register() {
           return
         }
         setDiscordUser(res.data)
+        // 直接 OAuth 進來的情況，重複判斷交給後端
       } catch (err) {
         console.error(err)
         navigate('/')
@@ -94,11 +105,12 @@ function Register() {
     if (type === 'team' && !teamName.trim()) { setErrorMsg('請填入隊伍名稱'); return }
 
     const emails = googleAccounts.filter(a => a.trim() !== '')
+    const excludePeriod = isMakeup ? selectedPeriod : currentPeriod
 
     setSubmitting(true)
     try {
       const checkRes = await axios.get(API_URL, {
-        params: { action: 'findTeamsByEmail', emails: emails.join(','), excludePeriod: targetPeriod, secret: SECRET }
+        params: { action: 'findTeamsByEmail', emails: emails.join(','), excludePeriod, secret: SECRET }
       })
       const matches = checkRes.data.matches || []
       if (matches.length > 0) {
@@ -130,7 +142,7 @@ function Register() {
           discordUsername: discordUser.username || '',
           serverNickname: serverNickname.trim(),
           googleAccounts: googleAccounts.filter(a => a.trim() !== '').join(','),
-          targetPeriod,
+          ...(isMakeup && { targetPeriod: selectedPeriod }),
           secret: SECRET
         }
       })
@@ -152,6 +164,7 @@ function Register() {
           }
         }
         setSuccess({ folderName: res.data.folderName, folderUrl: res.data.folderUrl, period: res.data.currentPeriod })
+        if (res.data.currentPeriod) setCurrentPeriod(res.data.currentPeriod)
       } else if (res.data.error === 'already_registered') {
         setAlreadyRegistered(true)
       } else {
@@ -165,6 +178,7 @@ function Register() {
     }
   }
 
+  // ── 載入中 ──────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
       <h1>月月繪</h1>
@@ -173,12 +187,15 @@ function Register() {
     </div>
   )
 
+  // ── 已建檔本期 ────────────────────────────────────────
   if (alreadyRegistered) return (
     <div className="container">
       <div className="result-card result-card--already">
         <div className="result-icon">✓</div>
         <h2>你已建檔本期</h2>
-        {targetPeriod && <p className="result-sub">{targetPeriod} 已有建檔紀錄</p>}
+        {(isMakeup ? selectedPeriod : currentPeriod) && (
+          <p className="result-sub">{isMakeup ? selectedPeriod : currentPeriod} 已有建檔紀錄</p>
+        )}
         <button onClick={() => navigate('/dashboard', { state: { discordUser } })}>
           返回 Dashboard
         </button>
@@ -192,6 +209,7 @@ function Register() {
     </div>
   )
 
+  // ── 建檔成功 ──────────────────────────────────────────
   if (success) return (
     <div className="container">
       <div className="result-card result-card--success">
@@ -223,13 +241,16 @@ function Register() {
     </div>
   )
 
+  // ── 主表單 ────────────────────────────────────────────
   return (
     <div className="container">
+      {/* 標題列 */}
       <div className="register-header">
         <h1>月月繪</h1>
-        {targetPeriod && <span className="period-badge">{targetPeriod}</span>}
+        {currentPeriod && <span className="period-badge">{currentPeriod}</span>}
       </div>
 
+      {/* 使用者資訊 */}
       {discordUser && (
         <div className="user-greeting">
           <img src={getAvatarUrl(discordUser)} alt="avatar" className="avatar" />
@@ -240,8 +261,30 @@ function Register() {
         </div>
       )}
 
+      {/* 錯誤訊息 */}
       {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
+      {/* 補交期：期數選擇 */}
+      {isMakeup && availablePeriods.length > 0 && (
+        <div className="form-section">
+          <label className="form-label">
+            <span className="label-icon">📅</span> 補交期數
+          </label>
+          <div className="type-toggle">
+            {availablePeriods.map(p => (
+              <button
+                key={p.name}
+                className={selectedPeriod === p.name ? 'toggle-btn active' : 'toggle-btn'}
+                onClick={() => setSelectedPeriod(p.name)}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 伺服器暱稱 */}
       <div className="form-section">
         <label className="form-label">
           <span className="label-icon">💬</span> 伺服器暱稱
@@ -254,6 +297,7 @@ function Register() {
         />
       </div>
 
+      {/* 參加類型 */}
       <div className="form-section">
         <label className="form-label">
           <span className="label-icon">🎨</span> 參加類型
@@ -274,6 +318,7 @@ function Register() {
         </div>
       </div>
 
+      {/* 隊伍名稱（只有團體） */}
       {type === 'team' && (
         <div className="form-section">
           <label className="form-label">
@@ -288,6 +333,7 @@ function Register() {
         </div>
       )}
 
+      {/* Google 帳號 */}
       <div className="form-section">
         <label className="form-label">
           <span className="label-icon">📧</span> Google 帳號
@@ -315,10 +361,12 @@ function Register() {
         </div>
       </div>
 
+      {/* 送出 */}
       <button onClick={handleSubmit} disabled={submitting} className="btn-submit">
         {submitting ? <><span className="btn-spinner" /> 建檔中...</> : '送出建檔'}
       </button>
 
+      {/* 使用說明 */}
       <button
         onClick={() => navigate('/help')}
         style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', width: '100%', fontSize: 13 }}
@@ -326,6 +374,7 @@ function Register() {
         ? 使用說明
       </button>
 
+      {/* 認領舊紀錄 Modal */}
       {showClaimModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',

@@ -625,7 +625,7 @@ function Admin() {
           >
             <option value="">— 選擇期數 —</option>
             {periods.map(p => (
-              <option key={p.name} value={p.name}>{p.open ? '🟢 ' : ''}{p.name}</option>
+              <option key={p.name} value={p.name}>{p.name === '補交期' ? '🎨 補交期' : p.name}</option>
             ))}
             <option value="_new_">＋ 新增期數</option>
           </select>
@@ -668,19 +668,6 @@ function Admin() {
                   清除
                 </button>
               )}
-            </div>
-
-            {/* 開放建檔 toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: editPeriod.open ? '#eafaf1' : '#fafafa', borderRadius: 8, padding: '10px 12px', border: `1px solid ${editPeriod.open ? '#2ecc71' : '#ddd'}` }}>
-              <span style={{ fontSize: 13, fontWeight: 'bold', color: editPeriod.open ? '#27ae60' : '#888' }}>
-                {editPeriod.open ? '🟢 開放建檔中' : '⚫ 建檔已關閉'}
-              </span>
-              <button
-                onClick={() => setEditPeriod(p => ({ ...p, open: !p.open }))}
-                style={{ fontSize: 12, padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', background: editPeriod.open ? '#e74c3c' : '#2ecc71', color: '#fff' }}
-              >
-                {editPeriod.open ? '關閉' : '開放'}
-              </button>
             </div>
 
             {/* Folder ID（補交期顯示 makeupRootFolder，其他顯示 rootFolderId） */}
