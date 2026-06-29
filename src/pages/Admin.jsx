@@ -317,7 +317,7 @@ function Admin() {
       if (filterType && rec.type !== filterType) return false
       if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
       if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
-      if (filterAttendance && rec.reportStatus !== filterAttendance) return false
+      if (filterAttendance && rec.attendanceStatus !== filterAttendance) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
@@ -486,7 +486,7 @@ function Admin() {
       })
       if (res.data.success) {
         setAllRecords(prev => prev.map(r =>
-          r.discordId === rec.discordId && r.period === rec.period ? { ...r, reportStatus: status } : r
+          r.discordId === rec.discordId && r.period === rec.period ? { ...r, attendanceStatus: status } : r
         ))
       }
     } catch (err) {
@@ -1283,9 +1283,9 @@ function Admin() {
                               <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
                                 disabled={attendanceUpdating === key}
                                 style={{ fontSize: 11, padding: '3px 10px',
-                                  background: rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
-                                  color: rec.reportStatus === status ? 'white' : '#666',
-                                  border: `1px solid ${rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
+                                  background: rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                                  color: rec.attendanceStatus === status ? 'white' : '#666',
+                                  border: `1px solid ${rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
                                 {status}
                               </button>
                             ))}
