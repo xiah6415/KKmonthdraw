@@ -594,10 +594,12 @@ function Dashboard() {
             ))}
 
             {/* 已上傳作業回報（歷史紀錄不顯示） */}
-            {isActiveRecord(record) && (record.reportStatus === '已完成' ? (
+            {isActiveRecord(record) && (record.attendanceStatus === '全勤' ? (
+              <div className="report-done">✅ 已全勤</div>
+            ) : record.reportStatus === '已完成' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="report-done" style={{ flex: 1 }}>
-                  {record.attendanceStatus === '全勤' ? '✅ 已全勤' : '✅ 通知成功'}
+                  ✅ 通知成功
                   {record.reportTime && (
                     <span className="report-done-time">
                       ・{record.reportTime.split('T')[0]}
