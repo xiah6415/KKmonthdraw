@@ -499,9 +499,9 @@ function Dashboard() {
                 borderRadius: 20,
                 fontSize: 13,
                 fontWeight: 'bold',
-                ...(record.reportStatus === '全勤' ? {
+                ...(record.attendanceStatus === '全勤' ? {
                   background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
-                } : record.reportStatus === '未全勤' ? {
+                } : record.attendanceStatus === '未全勤' ? {
                   background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046'
                 } : record.reportStatus === '已完成' ? {
                   background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
@@ -509,8 +509,8 @@ function Dashboard() {
                   background: '#f0f0f0', color: '#888', border: '1px solid #ccc'
                 })
               }}>
-                {record.reportStatus === '全勤' ? '✅ 全勤' :
-                 record.reportStatus === '未全勤' ? '⚠️ 未全勤' :
+                {record.attendanceStatus === '全勤' ? '✅ 全勤' :
+                 record.attendanceStatus === '未全勤' ? '⚠️ 未全勤' :
                  record.reportStatus === '已完成' ? '✅ 有完成' :
                  '🎨 有參加'}
               </div>
