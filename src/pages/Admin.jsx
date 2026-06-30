@@ -219,9 +219,12 @@ function Admin() {
       await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
+      // 上傳前重抓最新 periods，避免 state 尚未載入時送出空陣列覆蓋設定
+      const freshRes = await axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } })
+      const freshPeriods = freshRes.data.periods?.length ? freshRes.data.periods : periods
       // 新 GAS 用 setPeriodsConfig，舊 GAS fallback 到 setPeriod
       let res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(periods), coverImageUrl: url, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, secret: SECRET }
       })
       if (!res.data.success) {
         res = await axios.get(API_URL, {
@@ -744,7 +747,7 @@ function Admin() {
             cursor: coverUploading ? 'not-allowed' : 'pointer', fontSize: 13
           }}>
             {coverUploading ? '上傳中...' : coverImageUrl ? '換一張' : '上傳封面圖'}
-            <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={coverUploading} style={{ display: 'none' }} />
+            <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={coverUploading || loading} style={{ display: 'none' }} />
           </label>
           {coverMsg && (
             <p style={{ marginTop: 6, fontSize: 13, fontWeight: 'bold', color: coverMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
