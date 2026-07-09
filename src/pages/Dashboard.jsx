@@ -24,6 +24,7 @@ function Dashboard() {
   const [editingIndex, setEditingIndex] = useState(null)
   const [editAccounts, setEditAccounts] = useState([])
   const [editNickname, setEditNickname] = useState('')
+  const [editTeamName, setEditTeamName] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState(null)
   // 回報上傳
@@ -169,6 +170,7 @@ function Dashboard() {
       : ['']
     setEditAccounts(accounts.map(a => a.trim()))
     setEditNickname(rec.serverNickname || '')
+    setEditTeamName(rec.teamName || '')
     setEditingIndex(index)
     setEditError(null)
   }
@@ -177,6 +179,7 @@ function Dashboard() {
     setEditingIndex(null)
     setEditAccounts([])
     setEditNickname('')
+    setEditTeamName('')
     setEditError(null)
   }
 
@@ -189,20 +192,23 @@ function Dashboard() {
     setEditSaving(true)
     setEditError(null)
     try {
-      const res = await axios.get(API_URL, {
-        params: {
-          action: 'updateGoogleAccounts',
-          discordId: discordUser.id,
-          period: record.period,
-          googleAccounts: filtered.join(','),
-          serverNickname: editNickname.trim(),
-          secret: SECRET
-        }
-      })
+      const params = {
+        action: 'updateGoogleAccounts',
+        discordId: discordUser.id,
+        period: record.period,
+        googleAccounts: filtered.join(','),
+        serverNickname: editNickname.trim(),
+        secret: SECRET
+      }
+      if (record.type === '團體') params.teamName = editTeamName.trim()
+      const res = await axios.get(API_URL, { params })
       if (res.data.success) {
-        setRecords(prev => prev.map((r, i) =>
-          i === editingIndex ? { ...r, googleAccounts: filtered, serverNickname: editNickname.trim() } : r
-        ))
+        setRecords(prev => prev.map((r, i) => {
+          if (i !== editingIndex) return r
+          const updated = { ...r, googleAccounts: filtered, serverNickname: editNickname.trim() }
+          if (r.type === '團體') updated.teamName = editTeamName.trim()
+          return updated
+        }))
         cancelEdit()
       } else {
         setEditError('儲存失敗：' + (res.data.error || '未知錯誤'))
@@ -530,6 +536,18 @@ function Dashboard() {
                     style={{ margin: 0 }}
                   />
                 </div>
+                {record.type === '團體' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
+                    <input
+                      type="text"
+                      value={editTeamName}
+                      onChange={(e) => setEditTeamName(e.target.value)}
+                      placeholder="隊伍名稱"
+                      style={{ margin: 0 }}
+                    />
+                  </div>
+                )}
                 <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
                 {editAccounts.map((acc, i) => (
                   <div key={i} className="account-row">
