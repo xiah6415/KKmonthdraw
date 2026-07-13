@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 封面圖：允許任何人讀取；寫入僅限 JPEG 且 5MB 以下（實際管理者驗證在 GAS 端）
+    match /covers/cover {
+      allow read: if true;
+      allow write: if request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
+    // 其他所有路徑：唯讀，禁止任何寫入
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

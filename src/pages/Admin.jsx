@@ -150,7 +150,7 @@ function Admin() {
         updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod } : p)
       }
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
@@ -174,7 +174,7 @@ function Admin() {
     try {
       const updated = periods.filter(p => p.name !== selectedPeriodName)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
@@ -224,11 +224,11 @@ function Admin() {
       const freshPeriods = freshRes.data.periods?.length ? freshRes.data.periods : periods
       // 新 GAS 用 setPeriodsConfig，舊 GAS fallback 到 setPeriod
       let res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
       })
       if (!res.data.success) {
         res = await axios.get(API_URL, {
-          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, secret: SECRET }
+          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
         })
       }
       if (res.data.success) {
