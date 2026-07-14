@@ -52,8 +52,8 @@ function Admin() {
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverMsg, setCoverMsg] = useState(null)
 
-  // 全勤徽章
-  const [badgeUploading, setBadgeUploading] = useState(false)
+  // 全勤徽章（badgeUploading: null | '個人' | '團體'）
+  const [badgeUploading, setBadgeUploading] = useState(null)
   const [badgeMsg, setBadgeMsg] = useState(null)
 
   // 匯出
@@ -247,33 +247,35 @@ function Admin() {
     }
   }
 
-  // ── 全勤徽章上傳 ───────────────────────────────────────
-  const handleBadgeUpload = async (e) => {
+  // ── 全勤徽章上傳（type: '個人' | '團體'）─────────────────
+  const handleBadgeUpload = async (e, type) => {
     const file = e.target.files[0]
     if (!file || !editPeriod || isNewPeriod) return
-    setBadgeUploading(true)
+    const field = type === '個人' ? 'badgeIndividualUrl' : 'badgeTeamUrl'
+    setBadgeUploading(type)
     setBadgeMsg(null)
     try {
       const compressed = await compressImage(file)
       const safeName = editPeriod.name.trim().replace(/[/\\]/g, '_') || 'unnamed'
-      const storageRef = ref(storage, `badges/${safeName}`)
+      const storageRef = ref(storage, `badges/${safeName}_${type}`)
       await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
-      const updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod, badgeImageUrl: url } : p)
+      const newPeriod = { ...editPeriod, [field]: url }
+      const updated = periods.map(p => p.name === selectedPeriodName ? newPeriod : p)
       const res = await axios.get(API_URL, {
         params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
-        setEditPeriod(p => ({ ...p, badgeImageUrl: url }))
-        setBadgeMsg({ type: 'success', text: '徽章已更新' })
+        setEditPeriod(newPeriod)
+        setBadgeMsg({ type: 'success', text: `${type}徽章已更新` })
       } else {
         setBadgeMsg({ type: 'error', text: '圖片上傳成功但儲存網址失敗' })
       }
     } catch (err) {
       setBadgeMsg({ type: 'error', text: '上傳失敗：' + err.message })
     } finally {
-      setBadgeUploading(false)
+      setBadgeUploading(null)
     }
   }
 
@@ -747,25 +749,41 @@ function Admin() {
 
             {/* 全勤徽章 */}
             <div>
-              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>🏅 全勤徽章</label>
-              {editPeriod.badgeImageUrl && (
-                <img src={editPeriod.badgeImageUrl} alt="徽章預覽"
-                  style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, marginBottom: 8, display: 'block' }} />
-              )}
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>🏅 全勤徽章</label>
               {isNewPeriod ? (
                 <p style={{ margin: 0, fontSize: 11, color: '#bbb' }}>請先儲存期數後再上傳徽章</p>
               ) : (
-                <label style={{
-                  display: 'inline-block', padding: '6px 14px', borderRadius: 8,
-                  background: badgeUploading ? '#ccc' : '#5865F2', color: 'white',
-                  cursor: badgeUploading ? 'not-allowed' : 'pointer', fontSize: 12
-                }}>
-                  {badgeUploading ? '上傳中...' : editPeriod.badgeImageUrl ? '換一張' : '上傳徽章'}
-                  <input type="file" accept="image/*" onChange={handleBadgeUpload} disabled={badgeUploading} style={{ display: 'none' }} />
-                </label>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  {['個人', '團體'].map(type => {
+                    const field = type === '個人' ? 'badgeIndividualUrl' : 'badgeTeamUrl'
+                    const url = editPeriod[field]
+                    const uploading = badgeUploading === type
+                    return (
+                      <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        {url ? (
+                          <img src={url} alt={`${type}徽章`}
+                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
+                        ) : (
+                          <div style={{ width: 64, height: 64, borderRadius: 8, background: '#f0f0f0', border: '2px dashed #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                            🏅
+                          </div>
+                        )}
+                        <label style={{
+                          display: 'inline-block', padding: '5px 10px', borderRadius: 6,
+                          background: uploading ? '#ccc' : '#5865F2', color: 'white',
+                          cursor: uploading ? 'not-allowed' : 'pointer', fontSize: 11, whiteSpace: 'nowrap'
+                        }}>
+                          {uploading ? '上傳中...' : url ? `換${type}` : `上傳${type}`}
+                          <input type="file" accept="image/*" onChange={e => handleBadgeUpload(e, type)} disabled={!!badgeUploading} style={{ display: 'none' }} />
+                        </label>
+                        <span style={{ fontSize: 11, color: '#888' }}>{type}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
               {badgeMsg && (
-                <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 'bold', color: badgeMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                <p style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 'bold', color: badgeMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
                   {badgeMsg.type === 'success' ? '✓ ' : '✕ '}{badgeMsg.text}
                 </p>
               )}
