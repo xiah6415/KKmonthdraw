@@ -29,6 +29,7 @@ function Dashboard() {
   const [editError, setEditError] = useState(null)
   // 回報上傳
   const [reportingIndex, setReportingIndex] = useState(null)
+  const [reportError, setReportError] = useState({}) // { [index]: errorMsg }
   // 社群連結
   const [socialLinkDraft, setSocialLinkDraft] = useState({})
   const [socialLinkSaving, setSocialLinkSaving] = useState(null)
@@ -114,6 +115,8 @@ function Dashboard() {
           navigate('/')
           return
         }
+
+        window.history.replaceState({}, '', '/dashboard')
 
         const res = await axios.get(API_URL, {
           params: { action: 'initDashboard', code, secret: SECRET, redirect_uri: REDIRECT_URI }
@@ -224,6 +227,7 @@ function Dashboard() {
   const handleReport = async (index, record) => {
     if (record.reportStatus === '已完成') return
     setReportingIndex(index)
+    setReportError(prev => ({ ...prev, [index]: null }))
     try {
       const res = await axios.get(API_URL, {
         params: {
@@ -238,9 +242,11 @@ function Dashboard() {
         setRecords(prev => prev.map((r, i) =>
           i === index ? { ...r, reportStatus: '已完成', reportTime } : r
         ))
+      } else {
+        setReportError(prev => ({ ...prev, [index]: '回報失敗：' + (res.data.error || '未知錯誤') }))
       }
-    } catch (err) {
-      console.error('回報失敗：', err.message)
+    } catch {
+      setReportError(prev => ({ ...prev, [index]: '回報失敗，請再試一次' }))
     } finally {
       setReportingIndex(null)
     }
@@ -346,6 +352,7 @@ function Dashboard() {
 
   const handleCancelReport = async (index, record) => {
     setReportingIndex(index)
+    setReportError(prev => ({ ...prev, [index]: null }))
     try {
       const res = await axios.get(API_URL, {
         params: {
@@ -359,9 +366,11 @@ function Dashboard() {
         setRecords(prev => prev.map((r, i) =>
           i === index ? { ...r, reportStatus: '', reportTime: '' } : r
         ))
+      } else {
+        setReportError(prev => ({ ...prev, [index]: '取消失敗：' + (res.data.error || '未知錯誤') }))
       }
-    } catch (err) {
-      console.error('取消回報失敗：', err.message)
+    } catch {
+      setReportError(prev => ({ ...prev, [index]: '取消失敗，請再試一次' }))
     } finally {
       setReportingIndex(null)
     }
@@ -641,6 +650,9 @@ function Dashboard() {
                 {reportingIndex === index ? '通知中...' : '已上傳作業'}
               </button>
             ))}
+            {isActiveRecord(record) && reportError[index] && (
+              <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
+            )}
 
             {isActiveRecord(record) && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
