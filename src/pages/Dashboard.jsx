@@ -730,16 +730,15 @@ function Dashboard() {
                   onClick={() => earned && badgeUrl && setBadgeZoom({ url: badgeUrl, label })}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: earned && badgeUrl ? 'pointer' : 'default' }}
                 >
-                  {badgeUrl ? (
+                  {badgeUrl && earned ? (
                     <img
                       src={badgeUrl}
                       alt={label}
                       style={{
                         width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
-                        filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
                         transition: 'transform 0.15s',
                       }}
-                      onMouseEnter={e => { if (earned) e.currentTarget.style.transform = 'scale(1.08)' }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)' }}
                       onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
                     />
                   ) : (
