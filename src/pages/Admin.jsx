@@ -193,6 +193,22 @@ function Admin() {
     }
   }
 
+  // ── 期數順序調整 ───────────────────────────────────────
+  const handleMovePeriod = async (dir) => {
+    const idx = periods.findIndex(p => p.name === selectedPeriodName)
+    if (idx < 0) return
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= periods.length) return
+    const updated = [...periods]
+    ;[updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]]
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+      })
+      if (res.data.success) setPeriods(updated)
+    } catch { /* silent */ }
+  }
+
   // ── 封面圖上傳 ─────────────────────────────────────────
   const compressImage = (file) => new Promise((resolve) => {
     const img = new Image()
@@ -668,6 +684,17 @@ function Admin() {
             ))}
             <option value="_new_">＋ 新增期數</option>
           </select>
+          {selectedPeriodName && !isNewPeriod && (() => {
+            const idx = periods.findIndex(p => p.name === selectedPeriodName)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button onClick={() => handleMovePeriod(-1)} disabled={idx <= 0}
+                  style={{ padding: '4px 10px', fontSize: 13, background: idx <= 0 ? '#f0f0f0' : '#5865F2', color: idx <= 0 ? '#bbb' : 'white', border: 'none', borderRadius: 6, cursor: idx <= 0 ? 'default' : 'pointer' }}>▲</button>
+                <button onClick={() => handleMovePeriod(1)} disabled={idx >= periods.length - 1}
+                  style={{ padding: '4px 10px', fontSize: 13, background: idx >= periods.length - 1 ? '#f0f0f0' : '#5865F2', color: idx >= periods.length - 1 ? '#bbb' : 'white', border: 'none', borderRadius: 6, cursor: idx >= periods.length - 1 ? 'default' : 'pointer' }}>▼</button>
+              </div>
+            )
+          })()}
         </div>
 
         {/* 編輯區 */}
