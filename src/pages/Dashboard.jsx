@@ -697,13 +697,16 @@ function Dashboard() {
         <div style={{ background: 'white', borderRadius: 12, padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#333' }}>🏅 獎章冊</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {allPeriods.filter(p => p.name !== '補交期').flatMap(period => {
+            {(() => {
+              const participatedTypes = new Set(records.map(r => r.type))
+              return allPeriods.filter(p => p.name !== '補交期').flatMap(period => {
               const slots = []
               const types = [
                 { key: '個人', field: 'badgeIndividualUrl' },
                 { key: '團體', field: 'badgeTeamUrl' },
               ]
               for (const { key, field } of types) {
+                if (!participatedTypes.has(key)) continue
                 const badgeUrl = period[field]
                 if (!badgeUrl) continue
                 const earned = records.some(r => r.period === period.name && r.type === key && r.attendanceStatus === '全勤')
@@ -724,7 +727,8 @@ function Dashboard() {
                 )
               }
               return slots
-            })}
+            })
+            })()}
           </div>
         </div>
       )}
