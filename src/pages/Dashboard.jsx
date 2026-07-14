@@ -727,7 +727,6 @@ function Dashboard() {
                 for (const { key, field } of types) {
                   if (!participatedTypes.has(key)) continue
                   const badgeUrl = period[field]
-                  if (!badgeUrl) continue
                   const rec = records.find(r => r.period === period.name && r.type === key)
                   const earned = rec?.attendanceStatus === '全勤'
                   const label = key === '個人'
@@ -735,20 +734,28 @@ function Dashboard() {
                     : `${period.name}｜${rec?.teamName || '隊伍'}`
                   slots.push(
                     <div key={`${period.name}_${key}`}
-                      onClick={() => earned && setBadgeZoom({ url: badgeUrl, label })}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: earned ? 'pointer' : 'default' }}
+                      onClick={() => earned && badgeUrl && setBadgeZoom({ url: badgeUrl, label })}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: earned && badgeUrl ? 'pointer' : 'default' }}
                     >
-                      <img
-                        src={badgeUrl}
-                        alt={label}
-                        style={{
-                          width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
-                          filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
-                          transition: 'transform 0.15s',
-                        }}
-                        onMouseEnter={e => { if (earned) e.currentTarget.style.transform = 'scale(1.08)' }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-                      />
+                      {badgeUrl ? (
+                        <img
+                          src={badgeUrl}
+                          alt={label}
+                          style={{
+                            width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
+                            filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
+                            transition: 'transform 0.15s',
+                          }}
+                          onMouseEnter={e => { if (earned) e.currentTarget.style.transform = 'scale(1.08)' }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 64, height: 64, borderRadius: 8,
+                          background: 'white',
+                          border: '2px dashed #ccc',
+                        }} />
+                      )}
                       <span style={{ fontSize: 11, color: earned ? '#5865F2' : '#bbb', textAlign: 'center', maxWidth: 80, lineHeight: 1.3 }}>
                         {label}
                       </span>
