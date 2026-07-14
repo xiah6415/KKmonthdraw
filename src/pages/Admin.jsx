@@ -52,6 +52,10 @@ function Admin() {
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverMsg, setCoverMsg] = useState(null)
 
+  // 全勤徽章
+  const [badgeUploading, setBadgeUploading] = useState(false)
+  const [badgeMsg, setBadgeMsg] = useState(null)
+
   // 匯出
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState(null)
@@ -240,6 +244,36 @@ function Admin() {
       setCoverMsg({ type: 'error', text: '上傳失敗：' + err.message })
     } finally {
       setCoverUploading(false)
+    }
+  }
+
+  // ── 全勤徽章上傳 ───────────────────────────────────────
+  const handleBadgeUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file || !editPeriod || isNewPeriod) return
+    setBadgeUploading(true)
+    setBadgeMsg(null)
+    try {
+      const compressed = await compressImage(file)
+      const safeName = editPeriod.name.trim().replace(/[/\\]/g, '_') || 'unnamed'
+      const storageRef = ref(storage, `badges/${safeName}`)
+      await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
+      const url = await getDownloadURL(storageRef)
+      const updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod, badgeImageUrl: url } : p)
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+      })
+      if (res.data.success) {
+        setPeriods(updated)
+        setEditPeriod(p => ({ ...p, badgeImageUrl: url }))
+        setBadgeMsg({ type: 'success', text: '徽章已更新' })
+      } else {
+        setBadgeMsg({ type: 'error', text: '圖片上傳成功但儲存網址失敗' })
+      }
+    } catch (err) {
+      setBadgeMsg({ type: 'error', text: '上傳失敗：' + err.message })
+    } finally {
+      setBadgeUploading(false)
     }
   }
 
@@ -710,6 +744,32 @@ function Admin() {
                 />
               </div>
             )}
+
+            {/* 全勤徽章 */}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>🏅 全勤徽章</label>
+              {editPeriod.badgeImageUrl && (
+                <img src={editPeriod.badgeImageUrl} alt="徽章預覽"
+                  style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, marginBottom: 8, display: 'block' }} />
+              )}
+              {isNewPeriod ? (
+                <p style={{ margin: 0, fontSize: 11, color: '#bbb' }}>請先儲存期數後再上傳徽章</p>
+              ) : (
+                <label style={{
+                  display: 'inline-block', padding: '6px 14px', borderRadius: 8,
+                  background: badgeUploading ? '#ccc' : '#5865F2', color: 'white',
+                  cursor: badgeUploading ? 'not-allowed' : 'pointer', fontSize: 12
+                }}>
+                  {badgeUploading ? '上傳中...' : editPeriod.badgeImageUrl ? '換一張' : '上傳徽章'}
+                  <input type="file" accept="image/*" onChange={handleBadgeUpload} disabled={badgeUploading} style={{ display: 'none' }} />
+                </label>
+              )}
+              {badgeMsg && (
+                <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 'bold', color: badgeMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                  {badgeMsg.type === 'success' ? '✓ ' : '✕ '}{badgeMsg.text}
+                </p>
+              )}
+            </div>
 
             {/* 儲存 / 刪除按鈕 */}
             <div style={{ display: 'flex', gap: 8 }}>

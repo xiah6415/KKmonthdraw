@@ -692,6 +692,43 @@ function Dashboard() {
         ))}
       </div>
 
+      {/* 獎章冊 */}
+      {allPeriods.filter(p => p.name !== '補交期').length > 0 && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#333' }}>🏅 獎章冊</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            {allPeriods.filter(p => p.name !== '補交期').map(period => {
+              const earned = records.some(r => r.period === period.name && r.attendanceStatus === '全勤')
+              return (
+                <div key={period.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  {period.badgeImageUrl ? (
+                    <img
+                      src={period.badgeImageUrl}
+                      alt={period.name}
+                      style={{
+                        width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
+                        filter: earned ? 'none' : 'grayscale(1) opacity(0.3)'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 64, height: 64, borderRadius: 8,
+                      background: earned ? '#f0f4ff' : '#f5f5f5',
+                      border: `2px dashed ${earned ? '#5865F2' : '#ddd'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 22
+                    }}>🏅</div>
+                  )}
+                  <span style={{ fontSize: 11, color: earned ? '#5865F2' : '#bbb', textAlign: 'center', maxWidth: 70, lineHeight: 1.3 }}>
+                    {period.name}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 認領團體紀錄 */}
       <div style={{ borderRadius: 10, border: '1px solid #eee', overflow: 'hidden' }}>
         <button
