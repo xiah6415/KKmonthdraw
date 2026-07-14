@@ -34,6 +34,8 @@ function Dashboard() {
   const [socialLinkDraft, setSocialLinkDraft] = useState({})
   const [socialLinkSaving, setSocialLinkSaving] = useState(null)
   const [socialLinkMsg, setSocialLinkMsg] = useState({})
+  // 獎章放大
+  const [badgeZoom, setBadgeZoom] = useState(null) // { url, label }
   // 認領團體紀錄
   const [claimOpen, setClaimOpen] = useState(false)
   const [claimPeriod, setClaimPeriod] = useState('')
@@ -692,6 +694,23 @@ function Dashboard() {
         ))}
       </div>
 
+      {/* 獎章放大 lightbox */}
+      {badgeZoom && (
+        <div
+          onClick={() => setBadgeZoom(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12
+          }}
+        >
+          <img src={badgeZoom.url} alt={badgeZoom.label}
+            style={{ maxWidth: '80vw', maxHeight: '70vh', borderRadius: 16, objectFit: 'contain' }} />
+          <span style={{ color: 'white', fontSize: 15, fontWeight: 'bold' }}>{badgeZoom.label}</span>
+          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>點擊任意處關閉</span>
+        </div>
+      )}
+
       {/* 獎章冊 */}
       {allPeriods.filter(p => p.name !== '補交期').length > 0 && (
         <div style={{ background: 'white', borderRadius: 12, padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
@@ -700,34 +719,44 @@ function Dashboard() {
             {(() => {
               const participatedTypes = new Set(records.map(r => r.type))
               return allPeriods.filter(p => p.name !== '補交期').flatMap(period => {
-              const slots = []
-              const types = [
-                { key: '個人', field: 'badgeIndividualUrl' },
-                { key: '團體', field: 'badgeTeamUrl' },
-              ]
-              for (const { key, field } of types) {
-                if (!participatedTypes.has(key)) continue
-                const badgeUrl = period[field]
-                if (!badgeUrl) continue
-                const earned = records.some(r => r.period === period.name && r.type === key && r.attendanceStatus === '全勤')
-                slots.push(
-                  <div key={`${period.name}_${key}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <img
-                      src={badgeUrl}
-                      alt={`${period.name} ${key}`}
-                      style={{
-                        width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
-                        filter: earned ? 'none' : 'grayscale(1) opacity(0.3)'
-                      }}
-                    />
-                    <span style={{ fontSize: 11, color: earned ? '#5865F2' : '#bbb', textAlign: 'center', maxWidth: 70, lineHeight: 1.3 }}>
-                      {period.name}
-                    </span>
-                  </div>
-                )
-              }
-              return slots
-            })
+                const slots = []
+                const types = [
+                  { key: '個人', field: 'badgeIndividualUrl' },
+                  { key: '團體', field: 'badgeTeamUrl' },
+                ]
+                for (const { key, field } of types) {
+                  if (!participatedTypes.has(key)) continue
+                  const badgeUrl = period[field]
+                  if (!badgeUrl) continue
+                  const rec = records.find(r => r.period === period.name && r.type === key)
+                  const earned = rec?.attendanceStatus === '全勤'
+                  const label = key === '個人'
+                    ? `${period.name}｜個人`
+                    : `${period.name}｜${rec?.teamName || '隊伍'}`
+                  slots.push(
+                    <div key={`${period.name}_${key}`}
+                      onClick={() => earned && setBadgeZoom({ url: badgeUrl, label })}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: earned ? 'pointer' : 'default' }}
+                    >
+                      <img
+                        src={badgeUrl}
+                        alt={label}
+                        style={{
+                          width: 64, height: 64, borderRadius: 8, objectFit: 'cover',
+                          filter: earned ? 'none' : 'grayscale(1) opacity(0.3)',
+                          transition: 'transform 0.15s',
+                        }}
+                        onMouseEnter={e => { if (earned) e.currentTarget.style.transform = 'scale(1.08)' }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                      />
+                      <span style={{ fontSize: 11, color: earned ? '#5865F2' : '#bbb', textAlign: 'center', maxWidth: 80, lineHeight: 1.3 }}>
+                        {label}
+                      </span>
+                    </div>
+                  )
+                }
+                return slots
+              })
             })()}
           </div>
         </div>
