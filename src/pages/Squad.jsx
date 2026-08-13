@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const GAS_URL = import.meta.env.VITE_GAS_URL
+const GAS_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 
 const TYPE_LABEL = {
   individual: '個人找隊',
