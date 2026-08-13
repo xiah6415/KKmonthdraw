@@ -47,6 +47,12 @@ function Home() {
                 Discord 登入
             </button>
             <button
+                onClick={() => navigate('/squad')}
+                style={{ background: 'transparent', color: '#5865F2', border: '1px solid #5865F2', fontSize: 13 }}
+            >
+                🎨 隊伍徵求版
+            </button>
+            <button
                 onClick={() => navigate('/help')}
                 style={{ background: 'transparent', color: '#888', border: '1px solid #ddd', fontSize: 13 }}
             >
