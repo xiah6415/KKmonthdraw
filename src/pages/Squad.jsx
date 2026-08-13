@@ -69,8 +69,8 @@ export default function Squad() {
       } else {
         setError(data.error || '發文失敗，請稍後再試')
       }
-    } catch {
-      setError('網路錯誤，請稍後再試')
+    } catch (err) {
+      setError('錯誤：' + err.message)
     } finally {
       setSubmitting(false)
     }
