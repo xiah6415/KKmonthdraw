@@ -58,16 +58,19 @@ export default function Squad() {
     try {
       const params = new URLSearchParams({ secret: SECRET, action: 'createSquadPost', nickname: nickname.trim(), message: message.trim(), type })
       const res = await fetch(`${GAS_URL}?${params}`)
-      const data = await res.json()
-      if (data.success) {
+      let data = null
+      try { data = await res.json() } catch { data = null }
+      if (data?.success) {
         setSuccess(true)
         setNickname('')
         setMessage('')
         setShowForm(false)
         fetchPosts()
         setTimeout(() => setSuccess(false), 4000)
+      } else if (data?.error) {
+        setError(data.error)
       } else {
-        setError(data.error || '發文失敗，請稍後再試')
+        setError('發文失敗，請稍後再試')
       }
     } catch (err) {
       setError('錯誤：' + err.message)
