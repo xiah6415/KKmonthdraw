@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 
 const GAS_URL = import.meta.env.VITE_APPS_SCRIPT_URL
+const SECRET  = import.meta.env.VITE_API_SECRET
 
 const TYPE_LABEL = {
   individual: '個人找隊',
@@ -39,7 +40,7 @@ export default function Squad() {
   async function fetchPosts() {
     setLoading(true)
     try {
-      const res = await fetch(`${GAS_URL}?action=getSquadPosts`)
+      const res = await fetch(`${GAS_URL}?secret=${encodeURIComponent(SECRET)}&action=getSquadPosts`)
       const data = await res.json()
       if (data.success) setPosts(data.posts)
     } catch {
@@ -55,7 +56,7 @@ export default function Squad() {
     if (!nickname.trim() || !message.trim()) return
     setSubmitting(true)
     try {
-      const params = new URLSearchParams({ action: 'createSquadPost', nickname: nickname.trim(), message: message.trim(), type })
+      const params = new URLSearchParams({ secret: SECRET, action: 'createSquadPost', nickname: nickname.trim(), message: message.trim(), type })
       const res = await fetch(`${GAS_URL}?${params}`)
       const data = await res.json()
       if (data.success) {
