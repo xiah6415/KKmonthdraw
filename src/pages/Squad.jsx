@@ -250,6 +250,7 @@ const styles = {
     gap: 6,
     cursor: 'pointer',
     fontWeight: 'normal',
+    whiteSpace: 'nowrap',
   },
   input: {
     width: '100%',
