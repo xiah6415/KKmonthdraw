@@ -86,7 +86,7 @@ export default function Squad() {
       <div style={styles.container}>
         <div style={styles.header}>
           <h1 style={styles.title}>🎨 隊伍徵求版</h1>
-          <p style={styles.subtitle}>找隊友或招募隊員，找到後請回伺服器討論串聯絡對方</p>
+          <p style={styles.subtitle}>找隊友或招募隊員，找到後請回月月繪<a href="https://discord.com/channels/902819495373062176/1537390195270357082" target="_blank" rel="noreferrer" style={{ color: '#5865F2' }}>隊伍徵求串</a>聯絡對方</p>
         </div>
 
         <div style={styles.toolbar}>
