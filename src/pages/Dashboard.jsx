@@ -67,6 +67,8 @@ function Dashboard() {
   const [claimMatches, setClaimMatches] = useState([])
   const [claimChecked, setClaimChecked] = useState({})
   const [showClaimModal, setShowClaimModal] = useState(false)
+  // 隊伍邀請處理
+  const [inviteProcessing, setInviteProcessing] = useState(null) // notionPageId
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -529,6 +531,43 @@ function Dashboard() {
     }
   }
 
+  // ── 隊伍邀請 ──────────────────────────────────────────
+  const handleAcceptInvite = async (record) => {
+    setInviteProcessing(record.notionPageId)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'acceptTeamInvite',
+          discordId: discordUser.id,
+          discordName: discordUser.global_name || discordUser.username || discordUser.id,
+          discordUsername: discordUser.username || '',
+          period: record.period,
+          teamPageId: record.notionPageId,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setRecords(prev => prev.map(r =>
+          r.notionPageId === record.notionPageId
+            ? { ...r, linkedViaEmail: false, type: '團體', teamName: record.teamName, folderUrl: record.folderUrl }
+            : r
+        ))
+      }
+    } catch { /* silent */ }
+    finally { setInviteProcessing(null) }
+  }
+
+  const handleDeclineInvite = async (record) => {
+    setInviteProcessing(record.notionPageId)
+    try {
+      await axios.get(API_URL, {
+        params: { action: 'declineTeamInvite', discordId: discordUser.id, teamPageId: record.notionPageId, secret: SECRET }
+      })
+      setRecords(prev => prev.filter(r => r.notionPageId !== record.notionPageId))
+    } catch { /* silent */ }
+    finally { setInviteProcessing(null) }
+  }
+
   // ── Loading ───────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -600,6 +639,37 @@ function Dashboard() {
         <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
       )}
       <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} currentPeriod={currentPeriod} />
+
+      {/* 隊伍邀請通知 */}
+      {records
+        .filter(r => r.linkedViaEmail && openPeriods.some(p => p.name === r.period) && !records.some(own => !own.linkedViaEmail && own.period === r.period))
+        .map(r => (
+          <div key={r.notionPageId} style={{ background: '#f0f4ff', border: '1.5px solid #c5ceff', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <p style={{ margin: 0, fontWeight: 'bold', fontSize: 14, color: '#3b4fd8' }}>🤝 隊伍加入邀請・{r.period}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+                你的信箱被加入隊伍「<strong>{r.teamName}</strong>」，是否同意加入本期隊伍？
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => handleAcceptInvite(r)}
+                disabled={inviteProcessing === r.notionPageId}
+                style={{ flex: 1, background: '#5865F2', color: 'white', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
+              >
+                {inviteProcessing === r.notionPageId ? '處理中...' : '✓ 同意加入'}
+              </button>
+              <button
+                onClick={() => handleDeclineInvite(r)}
+                disabled={inviteProcessing === r.notionPageId}
+                style={{ flex: 1, background: 'transparent', color: '#aaa', border: '1px solid #ddd', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
+              >
+                不參加
+              </button>
+            </div>
+          </div>
+        ))
+      }
 
       {/* 開放建檔的期數 */}
       {openPeriods.filter(p => !records.some(r => r.period === p.name)).map(p => (

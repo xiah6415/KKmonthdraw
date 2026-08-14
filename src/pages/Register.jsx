@@ -8,8 +8,6 @@ const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
 function Register() {
   const [discordUser, setDiscordUser] = useState(null)
-  const [type, setType] = useState('personal')
-  const [teamName, setTeamName] = useState('')
   const [serverNickname, setServerNickname] = useState('')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(true)
@@ -26,11 +24,9 @@ function Register() {
           setLoading(false)
           return
         }
-
         const params = new URLSearchParams(window.location.search)
         const code = params.get('code')
         if (!code) { navigate('/'); return }
-
         const res = await axios.get(API_URL, {
           params: { action: 'getDiscordUser', code, secret: SECRET, redirect_uri: REDIRECT_URI }
         })
@@ -46,7 +42,6 @@ function Register() {
   }, [])
 
   const getDisplayName = (user) => user?.global_name || user?.username || user?.id || ''
-
   const getAvatarUrl = (user) => {
     if (!user) return ''
     if (user.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
@@ -58,28 +53,14 @@ function Register() {
     if (!serverNickname.trim()) { setErrorMsg('請填入伺服器暱稱'); return }
     if (!email.trim()) { setErrorMsg('請填入你的 Google 信箱'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setErrorMsg('信箱格式不正確'); return }
-    if (type === 'team' && !teamName.trim()) { setErrorMsg('請填入隊伍名稱'); return }
-
     setSubmitting(true)
     try {
       await Promise.all([
         axios.get(API_URL, {
-          params: {
-            action: 'saveUserInfo',
-            discordId: discordUser.id,
-            nickname: serverNickname.trim(),
-            type,
-            teamName: teamName.trim(),
-            secret: SECRET
-          }
+          params: { action: 'saveUserInfo', discordId: discordUser.id, nickname: serverNickname.trim(), secret: SECRET }
         }),
         axios.get(API_URL, {
-          params: {
-            action: 'saveProfile',
-            discordId: discordUser.id,
-            email: email.trim().toLowerCase(),
-            secret: SECRET
-          }
+          params: { action: 'saveProfile', discordId: discordUser.id, email: email.trim().toLowerCase(), secret: SECRET }
         })
       ])
       navigate('/dashboard')
@@ -110,7 +91,7 @@ function Register() {
           <img src={getAvatarUrl(discordUser)} alt="avatar" className="avatar" />
           <div>
             <p className="greeting-name">{getDisplayName(discordUser)}</p>
-            <p className="greeting-sub">先登記你的基本資料，本期建檔在 Dashboard 完成</p>
+            <p className="greeting-sub">先完成基本設定，建檔在 Dashboard 進行</p>
           </div>
         </div>
       )}
@@ -128,40 +109,6 @@ function Register() {
           placeholder="你在伺服器裡的暱稱"
         />
       </div>
-
-      <div className="form-section">
-        <label className="form-label">
-          <span className="label-icon">🎨</span> 參加類型
-        </label>
-        <div className="type-toggle">
-          <button
-            className={type === 'personal' ? 'toggle-btn active' : 'toggle-btn'}
-            onClick={() => setType('personal')}
-          >
-            個人
-          </button>
-          <button
-            className={type === 'team' ? 'toggle-btn active' : 'toggle-btn'}
-            onClick={() => setType('team')}
-          >
-            團體
-          </button>
-        </div>
-      </div>
-
-      {type === 'team' && (
-        <div className="form-section">
-          <label className="form-label">
-            <span className="label-icon">🏷️</span> 隊伍名稱
-          </label>
-          <input
-            type="text"
-            value={teamName}
-            onChange={e => setTeamName(e.target.value)}
-            placeholder="請輸入隊伍名稱"
-          />
-        </div>
-      )}
 
       <div className="form-section">
         <label className="form-label">
