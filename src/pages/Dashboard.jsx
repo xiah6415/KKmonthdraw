@@ -640,101 +640,349 @@ function Dashboard() {
       )}
       <ActivityInfo startDate={startDate} endDate={endDate} extendDate={extendDate} currentPeriod={currentPeriod} />
 
-      {/* 隊伍邀請通知 */}
-      {records
-        .filter(r => r.linkedViaEmail && openPeriods.some(p => p.name === r.period) && !records.some(own => !own.linkedViaEmail && own.period === r.period))
-        .map(r => (
-          <div key={r.notionPageId} style={{ background: '#f0f4ff', border: '1.5px solid #c5ceff', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div>
-              <p style={{ margin: 0, fontWeight: 'bold', fontSize: 14, color: '#3b4fd8' }}>🤝 隊伍加入邀請・{r.period}</p>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
-                你的信箱被加入隊伍「<strong>{r.teamName}</strong>」，是否同意加入本期隊伍？
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => handleAcceptInvite(r)}
-                disabled={inviteProcessing === r.notionPageId}
-                style={{ flex: 1, background: '#5865F2', color: 'white', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
-              >
-                {inviteProcessing === r.notionPageId ? '處理中...' : '✓ 同意加入'}
-              </button>
-              <button
-                onClick={() => handleDeclineInvite(r)}
-                disabled={inviteProcessing === r.notionPageId}
-                style={{ flex: 1, background: 'transparent', color: '#aaa', border: '1px solid #ddd', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
-              >
-                不參加
-              </button>
-            </div>
-          </div>
-        ))
-      }
+      {/* 紀錄標題列 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontSize: 16, color: '#333', margin: 0 }}>我的月月繪紀錄</h2>
+        <span style={{
+          background: '#f0f0f0', borderRadius: 20, padding: '2px 10px',
+          fontSize: 12, color: '#666'
+        }}>{records.filter(r => !r.linkedViaEmail).length} 筆</span>
+      </div>
 
-      {/* 開放建檔的期數 */}
-      {openPeriods.filter(p => !records.some(r => r.period === p.name && !r.linkedViaEmail)).map(p => (
-        <div key={p.name}>
-          <div className="cta-banner">
-            <div>
-              <p className="cta-title">📋 {p.name} 尚未建檔</p>
-              <p className="cta-sub">快來參加本期月月繪！</p>
-            </div>
-            <button
-              className="cta-btn"
-              onClick={() => buildingPeriod === p.name ? setBuildingPeriod(null) : startBuild(p.name)}
-            >
-              {buildingPeriod === p.name ? '取消' : '立即建檔'}
-            </button>
-          </div>
+      {/* 期數分組：邀請卡 / 建檔 CTA / 紀錄卡，每期獨立一區 */}
+      {(() => {
+        const ownRecords = records.map((r, i) => ({ ...r, _idx: i })).filter(r => !r.linkedViaEmail)
+        const pendingInvites = records.filter(r =>
+          r.linkedViaEmail && !ownRecords.some(own => own.period === r.period)
+        )
+        const displayPeriodNames = [
+          ...new Set([
+            ...openPeriods.map(p => p.name),
+            ...ownRecords.map(r => r.period)
+          ])
+        ]
 
-          {buildingPeriod === p.name && (
-            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <p style={{ margin: 0, fontWeight: 'bold', color: '#333', fontSize: 14 }}>📋 建立 {p.name} 資料夾</p>
+        return displayPeriodNames.map(periodName => {
+          const periodOwn = ownRecords.filter(r => r.period === periodName)
+          const periodInvites = pendingInvites.filter(r => r.period === periodName)
+          const isOpen = openPeriods.some(p => p.name === periodName)
 
-              <div>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>💬 伺服器暱稱</label>
-                <input type="text" value={buildNickname} onChange={e => setBuildNickname(e.target.value)} placeholder="你在伺服器裡的暱稱" style={{ margin: 0 }} />
-              </div>
+          return (
+            <div key={periodName} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-              <div>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>🎨 參加類型</label>
-                <div className="type-toggle">
-                  <button className={buildType === 'personal' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('personal')}>個人</button>
-                  <button className={buildType === 'team' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('team')}>團體</button>
+              {/* 邀請卡 */}
+              {periodInvites.map(r => (
+                <div key={r.notionPageId} style={{ background: '#f0f4ff', border: '1.5px solid #c5ceff', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: 14, color: '#3b4fd8' }}>🤝 隊伍加入邀請・{r.period}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#555' }}>
+                      你的信箱被加入隊伍「<strong>{r.teamName}</strong>」，是否同意加入本期隊伍？
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => handleAcceptInvite(r)}
+                      disabled={inviteProcessing === r.notionPageId}
+                      style={{ flex: 1, background: '#5865F2', color: 'white', border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
+                    >
+                      {inviteProcessing === r.notionPageId ? '處理中...' : '✓ 同意加入'}
+                    </button>
+                    <button
+                      onClick={() => handleDeclineInvite(r)}
+                      disabled={inviteProcessing === r.notionPageId}
+                      style={{ flex: 1, background: 'transparent', color: '#aaa', border: '1px solid #ddd', borderRadius: 8, padding: '9px 0', fontSize: 13, cursor: 'pointer' }}
+                    >
+                      不參加
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
 
-              {buildType === 'team' && (
+              {/* 建檔 CTA（開放中且無自己紀錄、無待處理邀請） */}
+              {isOpen && periodOwn.length === 0 && periodInvites.length === 0 && (
                 <div>
-                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
-                  <input type="text" value={buildTeamName} onChange={e => setBuildTeamName(e.target.value)} placeholder="隊伍名稱" style={{ margin: 0 }} />
+                  <div className="cta-banner">
+                    <div>
+                      <p className="cta-title">📋 {periodName} 尚未建檔</p>
+                      <p className="cta-sub">快來參加本期月月繪！</p>
+                    </div>
+                    <button
+                      className="cta-btn"
+                      onClick={() => buildingPeriod === periodName ? setBuildingPeriod(null) : startBuild(periodName)}
+                    >
+                      {buildingPeriod === periodName ? '取消' : '立即建檔'}
+                    </button>
+                  </div>
+
+                  {buildingPeriod === periodName && (
+                    <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <p style={{ margin: 0, fontWeight: 'bold', color: '#333', fontSize: 14 }}>📋 建立 {periodName} 資料夾</p>
+
+                      <div>
+                        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>💬 伺服器暱稱</label>
+                        <input type="text" value={buildNickname} onChange={e => setBuildNickname(e.target.value)} placeholder="你在伺服器裡的暱稱" style={{ margin: 0 }} />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>🎨 參加類型</label>
+                        <div className="type-toggle">
+                          <button className={buildType === 'personal' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('personal')}>個人</button>
+                          <button className={buildType === 'team' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('team')}>團體</button>
+                        </div>
+                      </div>
+
+                      {buildType === 'team' && (
+                        <div>
+                          <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
+                          <input type="text" value={buildTeamName} onChange={e => setBuildTeamName(e.target.value)} placeholder="隊伍名稱" style={{ margin: 0 }} />
+                        </div>
+                      )}
+
+                      <div>
+                        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號（資料夾共用）</label>
+                        {buildAccounts.map((acc, i) => (
+                          <div key={i} className="account-row" style={{ marginBottom: 6 }}>
+                            <input type="email" value={acc} onChange={e => { const n = [...buildAccounts]; n[i] = e.target.value; setBuildAccounts(n) }} placeholder="example@gmail.com" />
+                            {buildAccounts.length > 1 && (
+                              <button className="btn-remove" onClick={() => setBuildAccounts(buildAccounts.filter((_, j) => j !== i))}>✕</button>
+                            )}
+                          </div>
+                        ))}
+                        {buildType === 'team' && (
+                          <button className="btn-add" onClick={() => setBuildAccounts([...buildAccounts, ''])}>+ 新增隊員帳號</button>
+                        )}
+                      </div>
+
+                      {buildError && <p style={{ margin: 0, fontSize: 13, color: '#e74c3c', fontWeight: 'bold' }}>{buildError}</p>}
+
+                      <button onClick={handleBuildSubmit} disabled={buildSubmitting} className="btn-submit" style={{ marginTop: 4 }}>
+                        {buildSubmitting ? <><span className="btn-spinner" /> 建檔中...</> : '送出建檔'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div>
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號（資料夾共用）</label>
-                {buildAccounts.map((acc, i) => (
-                  <div key={i} className="account-row" style={{ marginBottom: 6 }}>
-                    <input type="email" value={acc} onChange={e => { const n = [...buildAccounts]; n[i] = e.target.value; setBuildAccounts(n) }} placeholder="example@gmail.com" />
-                    {buildAccounts.length > 1 && (
-                      <button className="btn-remove" onClick={() => setBuildAccounts(buildAccounts.filter((_, j) => j !== i))}>✕</button>
+              {/* 該期的紀錄卡 */}
+              {periodOwn.map(record => {
+                const index = record._idx
+                return (
+                  <div key={index} className="record-card">
+                    {/* 標頭 */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 16 }}>
+                        {record.period}
+                        {openPeriods.some(p => p.name === record.period) && (
+                          <span className="current-badge">開放中</span>
+                        )}
+                      </span>
+                      <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
+                        {record.type}
+                      </span>
+                    </div>
+
+                    {record.serverNickname && (
+                      <p style={{ margin: 0, color: '#555', fontSize: 14 }}>👤 {record.serverNickname}</p>
+                    )}
+                    {record.teamName && (
+                      <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
+                    )}
+
+                    {isActiveRecord(record) && (
+                      <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
+                        🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
+                      </p>
+                    )}
+
+                    {/* 非當期：顯示全勤狀態 */}
+                    {!isActiveRecord(record) && (
+                      <div style={{
+                        display: 'inline-block',
+                        marginTop: 4,
+                        padding: '4px 12px',
+                        borderRadius: 20,
+                        fontSize: 13,
+                        fontWeight: 'bold',
+                        ...(record.attendanceStatus === '全勤' ? {
+                          background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
+                        } : record.attendanceStatus === '未全勤' ? {
+                          background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046'
+                        } : record.reportStatus === '已完成' ? {
+                          background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
+                        } : {
+                          background: '#f0f0f0', color: '#888', border: '1px solid #ccc'
+                        })
+                      }}>
+                        {record.attendanceStatus === '全勤' ? '✅ 全勤' :
+                         record.attendanceStatus === '未全勤' ? '⚠️ 未全勤' :
+                         record.reportStatus === '已完成' ? '✅ 有完成' :
+                         '🎨 有參加'}
+                      </div>
+                    )}
+
+                    {/* 編輯 Google 帳號 */}
+                    {isActiveRecord(record) && (editingIndex === index ? (
+                      <div className="edit-section">
+                        <p className="edit-title">✏️ 修改資料</p>
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>伺服器暱稱</label>
+                          <input
+                            type="text"
+                            value={editNickname}
+                            onChange={(e) => setEditNickname(e.target.value)}
+                            placeholder="你在伺服器的暱稱"
+                            style={{ margin: 0 }}
+                          />
+                        </div>
+                        {record.type === '團體' && (
+                          <div style={{ marginBottom: 10 }}>
+                            <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
+                            <input
+                              type="text"
+                              value={editTeamName}
+                              onChange={(e) => setEditTeamName(e.target.value)}
+                              placeholder="隊伍名稱"
+                              style={{ margin: 0 }}
+                            />
+                          </div>
+                        )}
+                        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
+                        {editAccounts.map((acc, i) => (
+                          <div key={i} className="account-row">
+                            <input
+                              type="email"
+                              value={acc}
+                              onChange={(e) => {
+                                const next = [...editAccounts]
+                                next[i] = e.target.value
+                                setEditAccounts(next)
+                              }}
+                              placeholder="example@gmail.com"
+                            />
+                            {editAccounts.length > 1 && (
+                              <button
+                                className="btn-remove"
+                                onClick={() => setEditAccounts(editAccounts.filter((_, j) => j !== i))}
+                              >✕</button>
+                            )}
+                          </div>
+                        ))}
+                        {record.type === '團體' && (
+                          <button
+                            className="btn-add"
+                            onClick={() => setEditAccounts([...editAccounts, ''])}
+                          >+ 新增帳號</button>
+                        )}
+                        {editError && <p className="edit-error">{editError}</p>}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                          <button
+                            style={{ flex: 1, background: '#2ecc71', fontSize: 13, padding: '8px' }}
+                            onClick={() => saveEdit(record)}
+                            disabled={editSaving}
+                          >
+                            {editSaving ? '儲存中...' : '儲存'}
+                          </button>
+                          <button
+                            style={{ flex: 1, background: '#aaa', fontSize: 13, padding: '8px' }}
+                            onClick={cancelEdit}
+                          >
+                            取消
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      record.googleAccounts && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ fontSize: 12, color: '#888' }}>
+                            📧 {Array.isArray(record.googleAccounts)
+                              ? record.googleAccounts.join(', ')
+                              : record.googleAccounts}
+                          </div>
+                          <button
+                            className="btn-edit"
+                            onClick={() => startEdit(index)}
+                          >
+                            編輯
+                          </button>
+                        </div>
+                      )
+                    ))}
+
+                    {/* 回報 */}
+                    {isActiveRecord(record) && (record.attendanceStatus === '全勤' ? (
+                      <div className="report-done">✅ 已全勤</div>
+                    ) : record.reportStatus === '已完成' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="report-done" style={{ flex: 1 }}>
+                          ✅ 通知成功
+                          {record.reportTime && (
+                            <span className="report-done-time">
+                              ・{record.reportTime.split('T')[0]}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleCancelReport(index, record)}
+                          disabled={reportingIndex === index}
+                          style={{ background: 'transparent', color: '#aaa', border: '1px solid #ddd', fontSize: 12, padding: '6px 10px', flexShrink: 0 }}
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn-report"
+                        onClick={() => handleReport(index, record)}
+                        disabled={reportingIndex === index}
+                      >
+                        {reportingIndex === index ? '通知中...' : '已上傳作業'}
+                      </button>
+                    ))}
+                    {isActiveRecord(record) && reportError[index] && (
+                      <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
+                    )}
+
+                    {isActiveRecord(record) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <input
+                            type="url"
+                            value={socialLinkDraft[record.period] ?? record.socialLink ?? ''}
+                            onChange={e => setSocialLinkDraft(prev => ({ ...prev, [record.period]: e.target.value }))}
+                            placeholder="貼上 IG、Twitter 等打卡連結"
+                            style={{ margin: 0, flex: 1, fontSize: 13 }}
+                          />
+                          <button
+                            onClick={() => handleSaveSocialLink(record)}
+                            disabled={socialLinkSaving === record.period}
+                            style={{ whiteSpace: 'nowrap', fontSize: 12, padding: '8px 12px', background: '#5865F2' }}
+                          >
+                            {socialLinkSaving === record.period ? '儲存中...' : '儲存'}
+                          </button>
+                        </div>
+                        {socialLinkMsg[record.period] && (
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 'bold', color: socialLinkMsg[record.period].type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                            {socialLinkMsg[record.period].text}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {isActiveRecord(record) && record.folderUrl && (
+                      <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <button style={{ width: '100%', marginTop: 4, padding: 10, fontSize: 14 }}>
+                          📂 開啟資料夾
+                        </button>
+                      </a>
                     )}
                   </div>
-                ))}
-                {buildType === 'team' && (
-                  <button className="btn-add" onClick={() => setBuildAccounts([...buildAccounts, ''])}>+ 新增隊員帳號</button>
-                )}
-              </div>
-
-              {buildError && <p style={{ margin: 0, fontSize: 13, color: '#e74c3c', fontWeight: 'bold' }}>{buildError}</p>}
-
-              <button onClick={handleBuildSubmit} disabled={buildSubmitting} className="btn-submit" style={{ marginTop: 4 }}>
-                {buildSubmitting ? <><span className="btn-spinner" /> 建檔中...</> : '送出建檔'}
-              </button>
+                )
+              })}
             </div>
-          )}
-        </div>
-      ))}
+          )
+        })
+      })()}
 
       {/* Claim modal（舊期隊伍紀錄認領）*/}
       {showClaimModal && (
@@ -759,235 +1007,6 @@ function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* 紀錄標題列 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: 16, color: '#333', margin: 0 }}>我的月月繪紀錄</h2>
-        <span style={{
-          background: '#f0f0f0', borderRadius: 20, padding: '2px 10px',
-          fontSize: 12, color: '#666'
-        }}>{records.length} 筆</span>
-      </div>
-
-      {/* 紀錄列表 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {records.filter(r => !r.linkedViaEmail).map((record, index) => (
-          <div key={index} className="record-card">
-            {/* 標頭 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 16 }}>
-                {record.period}
-                {openPeriods.some(p => p.name === record.period) && (
-                  <span className="current-badge">開放中</span>
-                )}
-                {record.linkedViaEmail && (
-                  <span style={{ marginLeft: 6, fontSize: 11, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 20, padding: '2px 8px', fontWeight: 'normal' }}>🔗 關聯</span>
-                )}
-              </span>
-              <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
-                {record.type}
-              </span>
-            </div>
-
-            {record.serverNickname && (
-              <p style={{ margin: 0, color: '#555', fontSize: 14 }}>👤 {record.serverNickname}</p>
-            )}
-            {record.teamName && (
-              <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
-            )}
-
-            {isActiveRecord(record) && (
-              <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
-                🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
-              </p>
-            )}
-
-            {/* 非當期：顯示全勤狀態 */}
-            {!isActiveRecord(record) && (
-              <div style={{
-                display: 'inline-block',
-                marginTop: 4,
-                padding: '4px 12px',
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 'bold',
-                ...(record.attendanceStatus === '全勤' ? {
-                  background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
-                } : record.attendanceStatus === '未全勤' ? {
-                  background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046'
-                } : record.reportStatus === '已完成' ? {
-                  background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
-                } : {
-                  background: '#f0f0f0', color: '#888', border: '1px solid #ccc'
-                })
-              }}>
-                {record.attendanceStatus === '全勤' ? '✅ 全勤' :
-                 record.attendanceStatus === '未全勤' ? '⚠️ 未全勤' :
-                 record.reportStatus === '已完成' ? '✅ 有完成' :
-                 '🎨 有參加'}
-              </div>
-            )}
-
-            {/* 編輯 Google 帳號（展開區域，歷史紀錄及關聯紀錄不顯示） */}
-            {isActiveRecord(record) && !record.linkedViaEmail && (editingIndex === index ? (
-              <div className="edit-section">
-                <p className="edit-title">✏️ 修改資料</p>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>伺服器暱稱</label>
-                  <input
-                    type="text"
-                    value={editNickname}
-                    onChange={(e) => setEditNickname(e.target.value)}
-                    placeholder="你在伺服器的暱稱"
-                    style={{ margin: 0 }}
-                  />
-                </div>
-                {record.type === '團體' && (
-                  <div style={{ marginBottom: 10 }}>
-                    <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
-                    <input
-                      type="text"
-                      value={editTeamName}
-                      onChange={(e) => setEditTeamName(e.target.value)}
-                      placeholder="隊伍名稱"
-                      style={{ margin: 0 }}
-                    />
-                  </div>
-                )}
-                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
-                {editAccounts.map((acc, i) => (
-                  <div key={i} className="account-row">
-                    <input
-                      type="email"
-                      value={acc}
-                      onChange={(e) => {
-                        const next = [...editAccounts]
-                        next[i] = e.target.value
-                        setEditAccounts(next)
-                      }}
-                      placeholder="example@gmail.com"
-                    />
-                    {editAccounts.length > 1 && (
-                      <button
-                        className="btn-remove"
-                        onClick={() => setEditAccounts(editAccounts.filter((_, j) => j !== i))}
-                      >✕</button>
-                    )}
-                  </div>
-                ))}
-                {record.type === '團體' && (
-                  <button
-                    className="btn-add"
-                    onClick={() => setEditAccounts([...editAccounts, ''])}
-                  >+ 新增帳號</button>
-                )}
-                {editError && <p className="edit-error">{editError}</p>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button
-                    style={{ flex: 1, background: '#2ecc71', fontSize: 13, padding: '8px' }}
-                    onClick={() => saveEdit(record)}
-                    disabled={editSaving}
-                  >
-                    {editSaving ? '儲存中...' : '儲存'}
-                  </button>
-                  <button
-                    style={{ flex: 1, background: '#aaa', fontSize: 13, padding: '8px' }}
-                    onClick={cancelEdit}
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* 顯示現有帳號 + 編輯按鈕 */
-              record.googleAccounts && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ fontSize: 12, color: '#888' }}>
-                    📧 {Array.isArray(record.googleAccounts)
-                      ? record.googleAccounts.join(', ')
-                      : record.googleAccounts}
-                  </div>
-                  <button
-                    className="btn-edit"
-                    onClick={() => startEdit(index)}
-                  >
-                    編輯
-                  </button>
-                </div>
-              )
-            ))}
-
-            {/* 已上傳作業回報（歷史紀錄及關聯紀錄不顯示） */}
-            {isActiveRecord(record) && !record.linkedViaEmail && (record.attendanceStatus === '全勤' ? (
-              <div className="report-done">✅ 已全勤</div>
-            ) : record.reportStatus === '已完成' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="report-done" style={{ flex: 1 }}>
-                  ✅ 通知成功
-                  {record.reportTime && (
-                    <span className="report-done-time">
-                      ・{record.reportTime.split('T')[0]}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleCancelReport(index, record)}
-                  disabled={reportingIndex === index}
-                  style={{ background: 'transparent', color: '#aaa', border: '1px solid #ddd', fontSize: 12, padding: '6px 10px', flexShrink: 0 }}
-                >
-                  取消
-                </button>
-              </div>
-            ) : (
-              <button
-                className="btn-report"
-                onClick={() => handleReport(index, record)}
-                disabled={reportingIndex === index}
-              >
-                {reportingIndex === index ? '通知中...' : '已上傳作業'}
-              </button>
-            ))}
-            {isActiveRecord(record) && !record.linkedViaEmail && reportError[index] && (
-              <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
-            )}
-
-            {isActiveRecord(record) && !record.linkedViaEmail && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input
-                    type="url"
-                    value={socialLinkDraft[record.period] ?? record.socialLink ?? ''}
-                    onChange={e => setSocialLinkDraft(prev => ({ ...prev, [record.period]: e.target.value }))}
-                    placeholder="貼上 IG、Twitter 等打卡連結"
-                    style={{ margin: 0, flex: 1, fontSize: 13 }}
-                  />
-                  <button
-                    onClick={() => handleSaveSocialLink(record)}
-                    disabled={socialLinkSaving === record.period}
-                    style={{ whiteSpace: 'nowrap', fontSize: 12, padding: '8px 12px', background: '#5865F2' }}
-                  >
-                    {socialLinkSaving === record.period ? '儲存中...' : '儲存'}
-                  </button>
-                </div>
-                {socialLinkMsg[record.period] && (
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 'bold', color: socialLinkMsg[record.period].type === 'success' ? '#2ecc71' : '#e74c3c' }}>
-                    {socialLinkMsg[record.period].text}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {isActiveRecord(record) && record.folderUrl && (
-              <a href={record.folderUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                <button style={{ width: '100%', marginTop: 4, padding: 10, fontSize: 14 }}>
-                  📂 開啟資料夾
-                </button>
-              </a>
-            )}
-          </div>
-        ))}
-      </div>
 
       {/* 獎章放大 lightbox */}
       {badgeZoom && (
