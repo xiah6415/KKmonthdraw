@@ -763,18 +763,49 @@ function Dashboard() {
                 </div>
               )}
 
-              {/* 該期的紀錄卡 */}
+              {/* 該期的紀錄卡：當期完整卡片，過去期數只顯示一行摘要 */}
               {periodOwn.map(record => {
                 const index = record._idx
+                const isActive = isActiveRecord(record)
+
+                if (!isActive) {
+                  const att = record.attendanceStatus
+                  const isFullAtt = att === '全勤'
+                  return (
+                    <div key={index} style={{
+                      background: 'white', borderRadius: 10, padding: '10px 14px',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{record.period}</span>
+                        <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`} style={{ fontSize: 11 }}>
+                          {record.type}
+                        </span>
+                        {record.teamName && (
+                          <span style={{ fontSize: 12, color: '#888' }}>／ {record.teamName}</span>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: 12, fontWeight: 'bold', padding: '3px 10px', borderRadius: 20,
+                        ...(isFullAtt ? { background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71' }
+                          : att === '未全勤' ? { background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046' }
+                          : record.reportStatus === '已完成' ? { background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff' }
+                          : { background: '#f5f5f5', color: '#aaa', border: '1px solid #ddd' })
+                      }}>
+                        {isFullAtt ? '✅ 全勤' : att === '未全勤' ? '⚠️ 未全勤' : record.reportStatus === '已完成' ? '有完成' : '有參加'}
+                      </span>
+                    </div>
+                  )
+                }
+
                 return (
                   <div key={index} className="record-card">
                     {/* 標頭 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 16 }}>
                         {record.period}
-                        {openPeriods.some(p => p.name === record.period) && (
-                          <span className="current-badge">開放中</span>
-                        )}
+                        <span className="current-badge">開放中</span>
                       </span>
                       <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
                         {record.type}
@@ -788,37 +819,9 @@ function Dashboard() {
                       <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
                     )}
 
-                    {isActiveRecord(record) && (
-                      <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
-                        🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
-                      </p>
-                    )}
-
-                    {/* 非當期：顯示全勤狀態 */}
-                    {!isActiveRecord(record) && (
-                      <div style={{
-                        display: 'inline-block',
-                        marginTop: 4,
-                        padding: '4px 12px',
-                        borderRadius: 20,
-                        fontSize: 13,
-                        fontWeight: 'bold',
-                        ...(record.attendanceStatus === '全勤' ? {
-                          background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
-                        } : record.attendanceStatus === '未全勤' ? {
-                          background: '#fff5e6', color: '#e8b046', border: '1px solid #e8b046'
-                        } : record.reportStatus === '已完成' ? {
-                          background: '#e6f9ee', color: '#2ecc71', border: '1px solid #2ecc71'
-                        } : {
-                          background: '#f0f0f0', color: '#888', border: '1px solid #ccc'
-                        })
-                      }}>
-                        {record.attendanceStatus === '全勤' ? '✅ 全勤' :
-                         record.attendanceStatus === '未全勤' ? '⚠️ 未全勤' :
-                         record.reportStatus === '已完成' ? '✅ 有完成' :
-                         '🎨 有參加'}
-                      </div>
-                    )}
+                    <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
+                      🕐 建立時間：{record.createdTime ? record.createdTime.split('T')[0] : '未知'}
+                    </p>
 
                     {/* 編輯 Google 帳號 */}
                     {isActiveRecord(record) && (editingIndex === index ? (
