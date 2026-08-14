@@ -672,7 +672,7 @@ function Dashboard() {
       }
 
       {/* 開放建檔的期數 */}
-      {openPeriods.filter(p => !records.some(r => r.period === p.name)).map(p => (
+      {openPeriods.filter(p => !records.some(r => r.period === p.name && !r.linkedViaEmail)).map(p => (
         <div key={p.name}>
           <div className="cta-banner">
             <div>
@@ -771,7 +771,7 @@ function Dashboard() {
 
       {/* 紀錄列表 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {records.map((record, index) => (
+        {records.filter(r => !r.linkedViaEmail).map((record, index) => (
           <div key={index} className="record-card">
             {/* 標頭 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
