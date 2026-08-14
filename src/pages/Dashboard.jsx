@@ -47,6 +47,12 @@ function Dashboard() {
   const [claiming, setClaiming] = useState(false)
   const [claimMsg, setClaimMsg] = useState(null)
   const [claimDropdownOpen, setClaimDropdownOpen] = useState(false)
+  // 個人信箱 profile
+  const [profileEmail, setProfileEmail] = useState('')
+  const [profileEmailDraft, setProfileEmailDraft] = useState('')
+  const [profileEmailSaving, setProfileEmailSaving] = useState(false)
+  const [profileEmailMsg, setProfileEmailMsg] = useState(null)
+  const [profileEmailEditing, setProfileEmailEditing] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -99,6 +105,9 @@ function Dashboard() {
           setEndDate(res.data.endDate || '')
           setExtendDate(res.data.extendDate || '')
           setCoverImageUrl(res.data.coverImageUrl || '')
+          const email = res.data.profileEmail || ''
+          setProfileEmail(email)
+          setProfileEmailDraft(email)
           const openPeriods = periods.filter(p => p.open)
           if (res.data.records.length === 0 && openPeriods.length > 0) {
             navigate('/register', {
@@ -142,6 +151,9 @@ function Dashboard() {
         setExtendDate(res.data.extendDate || '')
         setCoverImageUrl(res.data.coverImageUrl || '')
         saveUserToStorage(user)
+        const initEmail = res.data.profileEmail || ''
+        setProfileEmail(initEmail)
+        setProfileEmailDraft(initEmail)
 
         const openPeriods = periods.filter(p => p.open)
         if (recs.length === 0 && openPeriods.length > 0) {
@@ -378,6 +390,34 @@ function Dashboard() {
     }
   }
 
+  // ── Profile 信箱 ──────────────────────────────────────
+  const handleSaveProfileEmail = async () => {
+    const email = profileEmailDraft.trim().toLowerCase()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setProfileEmailMsg({ type: 'error', text: '信箱格式不正確' })
+      return
+    }
+    setProfileEmailSaving(true)
+    setProfileEmailMsg(null)
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'saveProfile', discordId: discordUser.id, email, secret: SECRET }
+      })
+      if (res.data.success) {
+        setProfileEmail(email)
+        setProfileEmailEditing(false)
+        setProfileEmailMsg({ type: 'success', text: '已儲存' })
+        setTimeout(() => setProfileEmailMsg(null), 3000)
+      } else {
+        setProfileEmailMsg({ type: 'error', text: res.data.error || '儲存失敗' })
+      }
+    } catch {
+      setProfileEmailMsg({ type: 'error', text: '儲存失敗，請再試一次' })
+    } finally {
+      setProfileEmailSaving(false)
+    }
+  }
+
   // ── Loading ───────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -488,6 +528,9 @@ function Dashboard() {
                 {openPeriods.some(p => p.name === record.period) && (
                   <span className="current-badge">開放中</span>
                 )}
+                {record.linkedViaEmail && (
+                  <span style={{ marginLeft: 6, fontSize: 11, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 20, padding: '2px 8px', fontWeight: 'normal' }}>🔗 關聯</span>
+                )}
               </span>
               <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
                 {record.type}
@@ -533,8 +576,8 @@ function Dashboard() {
               </div>
             )}
 
-            {/* 編輯 Google 帳號（展開區域，歷史紀錄不顯示） */}
-            {isActiveRecord(record) && (editingIndex === index ? (
+            {/* 編輯 Google 帳號（展開區域，歷史紀錄及關聯紀錄不顯示） */}
+            {isActiveRecord(record) && !record.linkedViaEmail && (editingIndex === index ? (
               <div className="edit-section">
                 <p className="edit-title">✏️ 修改資料</p>
                 <div style={{ marginBottom: 10 }}>
@@ -622,8 +665,8 @@ function Dashboard() {
               )
             ))}
 
-            {/* 已上傳作業回報（歷史紀錄不顯示） */}
-            {isActiveRecord(record) && (record.attendanceStatus === '全勤' ? (
+            {/* 已上傳作業回報（歷史紀錄及關聯紀錄不顯示） */}
+            {isActiveRecord(record) && !record.linkedViaEmail && (record.attendanceStatus === '全勤' ? (
               <div className="report-done">✅ 已全勤</div>
             ) : record.reportStatus === '已完成' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -652,11 +695,11 @@ function Dashboard() {
                 {reportingIndex === index ? '通知中...' : '已上傳作業'}
               </button>
             ))}
-            {isActiveRecord(record) && reportError[index] && (
+            {isActiveRecord(record) && !record.linkedViaEmail && reportError[index] && (
               <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
             )}
 
-            {isActiveRecord(record) && (
+            {isActiveRecord(record) && !record.linkedViaEmail && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -753,6 +796,57 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* 個人信箱 */}
+      <div style={{ background: 'white', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 13, color: '#555', fontWeight: 'bold' }}>📧 我的 Google 信箱</span>
+          {!profileEmailEditing && (
+            <button
+              onClick={() => { setProfileEmailEditing(true); setProfileEmailDraft(profileEmail); setProfileEmailMsg(null) }}
+              style={{ background: 'transparent', color: '#5865F2', border: '1px solid #5865F2', fontSize: 12, padding: '4px 10px' }}
+            >
+              {profileEmail ? '編輯' : '新增'}
+            </button>
+          )}
+        </div>
+        {profileEmailEditing ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="email"
+              value={profileEmailDraft}
+              onChange={e => setProfileEmailDraft(e.target.value)}
+              placeholder="example@gmail.com"
+              style={{ margin: 0, fontSize: 13 }}
+            />
+            <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>填入你的 Google 信箱，隊長將你加入隊伍時，你的 Dashboard 將自動顯示該期隊伍紀錄</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={handleSaveProfileEmail}
+                disabled={profileEmailSaving}
+                style={{ flex: 1, background: '#5865F2', fontSize: 13, padding: '8px' }}
+              >
+                {profileEmailSaving ? '儲存中...' : '儲存'}
+              </button>
+              <button
+                onClick={() => { setProfileEmailEditing(false); setProfileEmailMsg(null) }}
+                style={{ flex: 1, background: '#aaa', fontSize: 13, padding: '8px' }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: profileEmail ? '#333' : '#aaa' }}>
+            {profileEmail || '尚未設定（設定後可自動關聯隊伍紀錄）'}
+          </p>
+        )}
+        {profileEmailMsg && (
+          <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 'bold', color: profileEmailMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+            {profileEmailMsg.text}
+          </p>
+        )}
+      </div>
 
       {/* 認領團體紀錄 */}
       <div style={{ borderRadius: 10, border: '1px solid #eee', overflow: 'hidden' }}>
