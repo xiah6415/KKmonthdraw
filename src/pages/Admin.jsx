@@ -1354,6 +1354,7 @@ function Admin() {
                         </div>
                       ) : (
                         <>
+                          {/* ── 身份資料 ── */}
                           <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
                             {rec.serverNickname || rec.discordName}
                             {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
@@ -1366,62 +1367,65 @@ function Admin() {
                               📧 {rec.googleAccounts.join(', ')}
                             </p>
                           )}
-                          {rec.reportTime && (
-                            <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
-                              ✅ 回報時間：{rec.reportTime.split('T')[0]}
-                            </p>
-                          )}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, color: '#888' }}>已回報：</span>
-                            {[['已完成', '已回報'], ['', '未回報']].map(([status, label]) => (
-                              <button key={status || 'none'}
-                                onClick={() => handleAdminToggleReport(rec, status)}
-                                disabled={reportUpdating === key}
-                                style={{ fontSize: 11, padding: '3px 10px',
-                                  background: rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#f0f0f0',
-                                  color: rec.reportStatus === status ? 'white' : '#666',
-                                  border: `1px solid ${rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#ddd'}` }}>
-                                {label}
-                              </button>
-                            ))}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
-                            {['全勤', '未全勤'].map(status => (
-                              <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
-                                disabled={attendanceUpdating === key}
-                                style={{ fontSize: 11, padding: '3px 10px',
-                                  background: rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
-                                  color: rec.attendanceStatus === status ? 'white' : '#666',
-                                  border: `1px solid ${rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
-                                {status}
-                              </button>
-                            ))}
-                          </div>
-                          {(() => {
-                            const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
-                            if (!sub) return null
-                            return (
-                              <div style={{ display: 'flex', gap: 10, fontSize: 12, marginTop: 2 }}>
-                                <span>基礎 <StatusBadge value={sub.basic} /></span>
-                                <span>進階 <StatusBadge value={sub.advanced} /></span>
-                                <span>心得 <StatusBadge value={sub.reflection} /></span>
+
+                          {/* ── 期數操作 ── */}
+                          <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 6, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: '#888' }}>已回報：</span>
+                                {[['已完成', '已回報'], ['', '未回報']].map(([status, label]) => (
+                                  <button key={status || 'none'}
+                                    onClick={() => handleAdminToggleReport(rec, status)}
+                                    disabled={reportUpdating === key}
+                                    style={{ fontSize: 11, padding: '3px 10px',
+                                      background: rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#f0f0f0',
+                                      color: rec.reportStatus === status ? 'white' : '#666',
+                                      border: `1px solid ${rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#ddd'}` }}>
+                                    {label}
+                                  </button>
+                                ))}
                               </div>
-                            )
-                          })()}
-                          {rec.socialLink && (
-                            <div style={{ fontSize: 11, color: '#888' }}>
-                              🔗 社群打卡：
-                              <a href={rec.socialLink} target="_blank" rel="noreferrer"
-                                style={{ color: '#e1306c', wordBreak: 'break-all' }}>
-                                {rec.socialLink}
-                              </a>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
+                                {['全勤', '未全勤'].map(status => (
+                                  <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
+                                    disabled={attendanceUpdating === key}
+                                    style={{ fontSize: 11, padding: '3px 10px',
+                                      background: rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                                      color: rec.attendanceStatus === status ? 'white' : '#666',
+                                      border: `1px solid ${rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
+                                    {status}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          )}
-                          {rec.folderUrl && (
-                            <a href={rec.folderUrl} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
-                          )}
+                            {rec.reportTime && (
+                              <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
+                                ✅ 回報時間：{rec.reportTime.split('T')[0]}
+                              </p>
+                            )}
+                            {(() => {
+                              const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
+                              if (!sub) return null
+                              return (
+                                <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                                  <span>基礎 <StatusBadge value={sub.basic} /></span>
+                                  <span>進階 <StatusBadge value={sub.advanced} /></span>
+                                  <span>心得 <StatusBadge value={sub.reflection} /></span>
+                                </div>
+                              )
+                            })()}
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                              {rec.folderUrl && (
+                                <a href={rec.folderUrl} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
+                              )}
+                              {rec.socialLink && (
+                                <a href={rec.socialLink} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: 11, color: '#e1306c' }}>🔗 社群打卡</a>
+                              )}
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>
