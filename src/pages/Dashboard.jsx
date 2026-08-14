@@ -53,6 +53,20 @@ function Dashboard() {
   const [profileEmailSaving, setProfileEmailSaving] = useState(false)
   const [profileEmailMsg, setProfileEmailMsg] = useState(null)
   const [profileEmailEditing, setProfileEmailEditing] = useState(false)
+  // userInfo (nickname/type/teamName)
+  const [userInfo, setUserInfo] = useState(null)
+  // inline 建檔
+  const [buildingPeriod, setBuildingPeriod] = useState(null)
+  const [buildNickname, setBuildNickname] = useState('')
+  const [buildType, setBuildType] = useState('personal')
+  const [buildTeamName, setBuildTeamName] = useState('')
+  const [buildAccounts, setBuildAccounts] = useState([''])
+  const [buildSubmitting, setBuildSubmitting] = useState(false)
+  const [buildError, setBuildError] = useState(null)
+  // claim modal (for inline 建檔)
+  const [claimMatches, setClaimMatches] = useState([])
+  const [claimChecked, setClaimChecked] = useState({})
+  const [showClaimModal, setShowClaimModal] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -108,11 +122,10 @@ function Dashboard() {
           const email = res.data.profileEmail || ''
           setProfileEmail(email)
           setProfileEmailDraft(email)
+          setUserInfo(res.data.userInfo || null)
           const openPeriods = periods.filter(p => p.open)
-          if (res.data.records.length === 0 && openPeriods.length > 0) {
-            navigate('/register', {
-              state: { discordUser: storedUser, targetPeriod: openPeriods[0].name, records: [] }
-            })
+          if (res.data.records.length === 0 && openPeriods.length > 0 && !res.data.userInfo) {
+            navigate('/register', { state: { discordUser: storedUser } })
           } else {
             setRecords(res.data.records)
             if (res.data.isAdmin) { setIsAdmin(true); setRoleSelection(true) }
@@ -154,12 +167,11 @@ function Dashboard() {
         const initEmail = res.data.profileEmail || ''
         setProfileEmail(initEmail)
         setProfileEmailDraft(initEmail)
+        setUserInfo(res.data.userInfo || null)
 
         const openPeriods = periods.filter(p => p.open)
-        if (recs.length === 0 && openPeriods.length > 0) {
-          navigate('/register', {
-            state: { discordUser: user, targetPeriod: openPeriods[0].name, records: [] }
-          })
+        if (recs.length === 0 && openPeriods.length > 0 && !res.data.userInfo) {
+          navigate('/register', { state: { discordUser: user } })
         } else {
           setRecords(recs)
           if (res.data.isAdmin) { setIsAdmin(true); setRoleSelection(true) }
@@ -418,6 +430,105 @@ function Dashboard() {
     }
   }
 
+  // ── 建檔（inline）─────────────────────────────────────
+  const startBuild = (periodName) => {
+    setBuildingPeriod(periodName)
+    setBuildNickname(userInfo?.nickname || '')
+    setBuildType(userInfo?.type || 'personal')
+    setBuildTeamName(userInfo?.teamName || '')
+    setBuildAccounts(profileEmail ? [profileEmail] : [''])
+    setBuildError(null)
+  }
+
+  const handleBuildSubmit = async () => {
+    setBuildError(null)
+    if (!buildNickname.trim()) { setBuildError('請填入伺服器暱稱'); return }
+    const emails = buildAccounts.filter(a => a.trim())
+    if (emails.length === 0) { setBuildError('請至少填入一個 Google 帳號'); return }
+    if (buildType === 'team' && !buildTeamName.trim()) { setBuildError('請填入隊伍名稱'); return }
+
+    setBuildSubmitting(true)
+    try {
+      const checkRes = await axios.get(API_URL, {
+        params: { action: 'findTeamsByEmail', emails: emails.join(','), excludePeriod: buildingPeriod, secret: SECRET }
+      })
+      const matches = checkRes.data.matches || []
+      if (matches.length > 0) {
+        setClaimMatches(matches)
+        setClaimChecked(Object.fromEntries(matches.map((_, i) => [i, true])))
+        setShowClaimModal(true)
+        setBuildSubmitting(false)
+        return
+      }
+    } catch { /* ignore */ }
+    await doCreateFolder([])
+  }
+
+  const doCreateFolder = async (confirmedMatches) => {
+    setShowClaimModal(false)
+    setBuildSubmitting(true)
+    try {
+      const emails = buildAccounts.filter(a => a.trim())
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'createFolder',
+          type: buildType,
+          teamName: buildTeamName.trim(),
+          discordId: discordUser.id,
+          discordName: discordUser.global_name || discordUser.username || discordUser.id,
+          discordUsername: discordUser.username || '',
+          serverNickname: buildNickname.trim(),
+          googleAccounts: emails.join(','),
+          targetPeriod: buildingPeriod,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        for (const match of confirmedMatches) {
+          try {
+            await axios.get(API_URL, {
+              params: {
+                action: 'claimRecordByEmail',
+                username: discordUser.username || discordUser.id,
+                period: match.period,
+                teamName: match.teamName,
+                attendanceStatus: match.reportStatus,
+                secret: SECRET
+              }
+            })
+          } catch { /* ignore */ }
+        }
+        const newRecord = {
+          discordId: discordUser.id,
+          isLegacy: false,
+          period: buildingPeriod,
+          type: buildType === 'team' ? '團體' : '個人',
+          teamName: buildTeamName.trim(),
+          serverNickname: buildNickname.trim(),
+          folderUrl: res.data.folderUrl,
+          googleAccounts: emails,
+          username: discordUser.username || '',
+          createdTime: new Date().toISOString(),
+          reportStatus: '',
+          attendanceStatus: '',
+          reportTime: '',
+          socialLink: '',
+          linkedViaEmail: false
+        }
+        setRecords(prev => [newRecord, ...prev])
+        setBuildingPeriod(null)
+      } else if (res.data.error === 'already_registered') {
+        setBuildError('本期已建檔')
+      } else {
+        setBuildError('建檔失敗：' + (res.data.error || '未知錯誤'))
+      }
+    } catch {
+      setBuildError('建檔失敗，請再試一次')
+    } finally {
+      setBuildSubmitting(false)
+    }
+  }
+
   // ── Loading ───────────────────────────────────────────
   if (loading) return (
     <div className="container" style={{ textAlign: 'center' }}>
@@ -492,21 +603,92 @@ function Dashboard() {
 
       {/* 開放建檔的期數 */}
       {openPeriods.filter(p => !records.some(r => r.period === p.name)).map(p => (
-        <div key={p.name} className="cta-banner">
-          <div>
-            <p className="cta-title">📋 {p.name} 尚未建檔</p>
-            <p className="cta-sub">快來參加本期月月繪！</p>
+        <div key={p.name}>
+          <div className="cta-banner">
+            <div>
+              <p className="cta-title">📋 {p.name} 尚未建檔</p>
+              <p className="cta-sub">快來參加本期月月繪！</p>
+            </div>
+            <button
+              className="cta-btn"
+              onClick={() => buildingPeriod === p.name ? setBuildingPeriod(null) : startBuild(p.name)}
+            >
+              {buildingPeriod === p.name ? '取消' : '立即建檔'}
+            </button>
           </div>
-          <button
-            className="cta-btn"
-            onClick={() => navigate('/register', {
-              state: { discordUser, targetPeriod: p.name, records }
-            })}
-          >
-            立即建檔
-          </button>
+
+          {buildingPeriod === p.name && (
+            <div style={{ background: 'white', borderRadius: 12, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ margin: 0, fontWeight: 'bold', color: '#333', fontSize: 14 }}>📋 建立 {p.name} 資料夾</p>
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>💬 伺服器暱稱</label>
+                <input type="text" value={buildNickname} onChange={e => setBuildNickname(e.target.value)} placeholder="你在伺服器裡的暱稱" style={{ margin: 0 }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>🎨 參加類型</label>
+                <div className="type-toggle">
+                  <button className={buildType === 'personal' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('personal')}>個人</button>
+                  <button className={buildType === 'team' ? 'toggle-btn active' : 'toggle-btn'} onClick={() => setBuildType('team')}>團體</button>
+                </div>
+              </div>
+
+              {buildType === 'team' && (
+                <div>
+                  <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
+                  <input type="text" value={buildTeamName} onChange={e => setBuildTeamName(e.target.value)} placeholder="隊伍名稱" style={{ margin: 0 }} />
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號（資料夾共用）</label>
+                {buildAccounts.map((acc, i) => (
+                  <div key={i} className="account-row" style={{ marginBottom: 6 }}>
+                    <input type="email" value={acc} onChange={e => { const n = [...buildAccounts]; n[i] = e.target.value; setBuildAccounts(n) }} placeholder="example@gmail.com" />
+                    {buildAccounts.length > 1 && (
+                      <button className="btn-remove" onClick={() => setBuildAccounts(buildAccounts.filter((_, j) => j !== i))}>✕</button>
+                    )}
+                  </div>
+                ))}
+                {buildType === 'team' && (
+                  <button className="btn-add" onClick={() => setBuildAccounts([...buildAccounts, ''])}>+ 新增隊員帳號</button>
+                )}
+              </div>
+
+              {buildError && <p style={{ margin: 0, fontSize: 13, color: '#e74c3c', fontWeight: 'bold' }}>{buildError}</p>}
+
+              <button onClick={handleBuildSubmit} disabled={buildSubmitting} className="btn-submit" style={{ marginTop: 4 }}>
+                {buildSubmitting ? <><span className="btn-spinner" /> 建檔中...</> : '送出建檔'}
+              </button>
+            </div>
+          )}
         </div>
       ))}
+
+      {/* Claim modal（舊期隊伍紀錄認領）*/}
+      {showClaimModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380 }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 17 }}>找到舊期紀錄</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#555' }}>你的 Google 帳號在以下期數有參加記錄，是否一併認領至你的帳號？</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              {claimMatches.map((match, i) => (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={claimChecked[i] ?? true} onChange={e => setClaimChecked(prev => ({ ...prev, [i]: e.target.checked }))} style={{ width: 16, height: 16 }} />
+                  <span>{match.period}「<strong>{match.teamName}</strong>」</span>
+                </label>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={{ flex: 1, background: '#5865F2', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
+                onClick={() => doCreateFolder(claimMatches.filter((_, i) => claimChecked[i]))}>確認</button>
+              <button style={{ flex: 1, background: '#eee', color: '#555', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
+                onClick={() => doCreateFolder([])}>略過</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 紀錄標題列 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
