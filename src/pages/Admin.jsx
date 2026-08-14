@@ -1254,20 +1254,18 @@ function Admin() {
                     <div key={i} className="record-card" style={{ gap: 6 }}>
                       {/* 標頭列 */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
                           <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
                             {rec.type}
                           </span>
+                          {rec.teamName && (
+                            <span style={{ fontSize: 12, color: '#666' }}>／ {rec.teamName}</span>
+                          )}
                           {rec.reportStatus === '已完成'
                             ? <span className="report-badge--done">✅ 已回報</span>
                             : <span className="report-badge--pending">⏳ 未回報</span>
                           }
-                          {rec.socialLink && (
-                            <a href={rec.socialLink} target="_blank" rel="noreferrer"
-                              title={rec.socialLink}
-                              style={{ fontSize: 12, color: '#e1306c', textDecoration: 'none' }}>🔗 打卡</a>
-                          )}
                         </div>
                         {!isEditing && (
                           <button className="btn-edit" onClick={() => startEditRecord(rec)}>編輯</button>
@@ -1357,7 +1355,6 @@ function Admin() {
                           {/* ── 身份資料 ── */}
                           <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
                             {rec.serverNickname || rec.discordName}
-                            {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
                           </p>
                           <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
                             {rec.username ? `@${rec.username}` : rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
