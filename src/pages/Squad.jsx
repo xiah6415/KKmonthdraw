@@ -31,6 +31,7 @@ export default function Squad() {
   const [nickname, setNickname] = useState('')
   const [message, setMessage]   = useState('')
   const [type, setType]         = useState('individual')
+  const [slots, setSlots]       = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]       = useState('')
   const [success, setSuccess]   = useState(false)
@@ -56,7 +57,7 @@ export default function Squad() {
     if (!nickname.trim() || !message.trim()) return
     setSubmitting(true)
     try {
-      const params = new URLSearchParams({ secret: SECRET, action: 'createSquadPost', nickname: nickname.trim(), message: message.trim(), type })
+      const params = new URLSearchParams({ secret: SECRET, action: 'createSquadPost', nickname: nickname.trim(), message: message.trim(), type, slots: String(slots) })
       const res = await fetch(`${GAS_URL}?${params}`)
       let data = null
       try { data = await res.json() } catch { data = null }
@@ -64,6 +65,7 @@ export default function Squad() {
         setSuccess(true)
         setNickname('')
         setMessage('')
+        setSlots(1)
         setShowForm(false)
         fetchPosts()
         setTimeout(() => setSuccess(false), 4000)
@@ -116,6 +118,19 @@ export default function Squad() {
                 </label>
               ))}
             </div>
+            <div style={styles.slotsRow}>
+              <span style={styles.slotsLabel}>徵求人數</span>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setSlots(n)}
+                  style={{ ...styles.slotBtn, ...(slots === n ? styles.slotBtnActive : {}) }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
             <input
               placeholder="伺服器暱稱（最多 30 字）"
               value={nickname}
@@ -158,6 +173,7 @@ export default function Squad() {
                     {TYPE_LABEL[post.type] || post.type}
                   </span>
                   <span style={styles.cardName}>{post.nickname}</span>
+                  {post.slots > 1 && <span style={styles.slotsBadge}>×{post.slots}</span>}
                   <span style={styles.cardTime}>{post.time ? timeAgo(post.time) : ''}</span>
                 </div>
                 <p style={styles.cardMessage}>{post.message}</p>
@@ -355,5 +371,42 @@ const styles = {
     color: '#aaa',
     fontSize: 14,
     padding: '40px 0',
+  },
+  slotsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slotsLabel: {
+    fontSize: 14,
+    color: '#555',
+    marginRight: 4,
+    whiteSpace: 'nowrap',
+  },
+  slotBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: '1.5px solid #ddd',
+    background: 'white',
+    color: '#555',
+    fontSize: 14,
+    cursor: 'pointer',
+    fontWeight: 'normal',
+  },
+  slotBtnActive: {
+    background: '#5865F2',
+    borderColor: '#5865F2',
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  slotsBadge: {
+    fontSize: 12,
+    color: '#5865F2',
+    background: '#ebedff',
+    padding: '2px 8px',
+    borderRadius: 20,
+    fontWeight: 'bold',
+    whiteSpace: 'nowrap',
   },
 }
