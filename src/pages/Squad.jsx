@@ -113,24 +113,26 @@ export default function Squad() {
             <div style={styles.typeRow}>
               {[['individual', '個人找隊'], ['team', '隊伍缺人']].map(([v, label]) => (
                 <label key={v} style={styles.typeLabel}>
-                  <input type="radio" name="type" value={v} checked={type === v} onChange={() => setType(v)} />
+                  <input type="radio" name="type" value={v} checked={type === v} onChange={() => { setType(v); if (v === 'individual') setSlots(1) }} />
                   {' '}{label}
                 </label>
               ))}
             </div>
-            <div style={styles.slotsRow}>
-              <span style={styles.slotsLabel}>徵求人數</span>
-              {[1, 2, 3, 4, 5].map(n => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setSlots(n)}
-                  style={{ ...styles.slotBtn, ...(slots === n ? styles.slotBtnActive : {}) }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+            {type === 'team' && (
+              <div style={styles.slotsRow}>
+                <span style={styles.slotsLabel}>徵求人數</span>
+                {[1, 2, 3].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setSlots(n)}
+                    style={{ ...styles.slotBtn, ...(slots === n ? styles.slotBtnActive : {}) }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            )}
             <input
               placeholder="伺服器暱稱（最多 30 字）"
               value={nickname}
@@ -173,7 +175,7 @@ export default function Squad() {
                     {TYPE_LABEL[post.type] || post.type}
                   </span>
                   <span style={styles.cardName}>{post.nickname}</span>
-                  {post.slots > 1 && <span style={styles.slotsBadge}>×{post.slots}</span>}
+                  {post.type === 'team' && post.slots && <span style={styles.slotsBadge}>×{post.slots}</span>}
                   <span style={styles.cardTime}>{post.time ? timeAgo(post.time) : ''}</span>
                 </div>
                 <p style={styles.cardMessage}>{post.message}</p>
