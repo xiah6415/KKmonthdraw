@@ -175,7 +175,7 @@ export default function Squad() {
                     {TYPE_LABEL[post.type] || post.type}
                   </span>
                   <span style={styles.cardName}>{post.nickname}</span>
-                  {post.type === 'team' && post.slots && <span style={styles.slotsBadge}>×{post.slots}</span>}
+                  {post.type === 'team' && post.slots && <span style={styles.slotsBadge}>徵求 {post.slots} 人</span>}
                   <span style={styles.cardTime}>{post.time ? timeAgo(post.time) : ''}</span>
                 </div>
                 <p style={styles.cardMessage}>{post.message}</p>
