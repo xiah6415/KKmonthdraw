@@ -10,12 +10,15 @@ const SECRET = import.meta.env.VITE_API_SECRET
 function Admin() {
   const [discordUser, setDiscordUser] = useState(null)
   const [currentPeriod, setCurrentPeriod] = useState('')
-  const [newPeriod, setNewPeriod] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [periodMsg, setPeriodMsg] = useState(null)
+
+  // 期數列表管理
+  const [periods, setPeriods] = useState([])
+  const [selectedPeriodName, setSelectedPeriodName] = useState('')
+  const [editPeriod, setEditPeriod] = useState(null) // {name, startDate, endDate, extendDate, rootFolderId, makeupRootFolder?}
+  const [isNewPeriod, setIsNewPeriod] = useState(false)
+  const [periodSaving, setPeriodSaving] = useState(false)
 
   // 管理員名單
   const [adminList, setAdminList] = useState([])
@@ -49,6 +52,10 @@ function Admin() {
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverMsg, setCoverMsg] = useState(null)
 
+  // 全勤徽章（badgeUploading: null | '個人' | '團體'）
+  const [badgeUploading, setBadgeUploading] = useState(null)
+  const [badgeMsg, setBadgeMsg] = useState(null)
+
   // 匯出
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState(null)
@@ -65,6 +72,8 @@ function Admin() {
 
   // 全勤調整
   const [attendanceUpdating, setAttendanceUpdating] = useState(null)
+  // 已回報調整
+  const [reportUpdating, setReportUpdating] = useState(null)
 
   // 新增歷史參加者
   const [legacyFormOpen, setLegacyFormOpen] = useState(false)
@@ -87,17 +96,29 @@ function Admin() {
 
   const fetchInitData = async () => {
     try {
-      const [periodRes, adminRes] = await Promise.all([
-        axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } }),
+      const [periodsRes, adminRes] = await Promise.all([
+        axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } }),
         axios.get(API_URL, { params: { action: 'getAdminIds', secret: SECRET } })
       ])
-      const period = periodRes.data.currentPeriod || ''
-      setCurrentPeriod(period)
-      setNewPeriod(period)
-      setStartDate(periodRes.data.startDate || '')
-      setEndDate(periodRes.data.endDate || '')
-      setCoverImageUrl(periodRes.data.coverImageUrl || '')
-      setScannedPeriod(period)
+
+      let allPeriods = periodsRes.data.periods || []
+      let coverUrl = periodsRes.data.coverImageUrl || ''
+
+      // periodsConfig 尚未設定（空陣列）或舊 GAS，fallback 到 getPeriod
+      if (!periodsRes.data.periods?.length) {
+        const fallback = await axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
+        coverUrl = fallback.data.coverImageUrl || ''
+        const name = fallback.data.currentPeriod
+        if (name) {
+          allPeriods = [{ name, startDate: fallback.data.startDate || '', endDate: fallback.data.endDate || '', extendDate: fallback.data.extendDate || '', rootFolderId: '' }]
+        }
+      }
+
+      setPeriods(allPeriods)
+      setCoverImageUrl(coverUrl)
+      const activeName = allPeriods.length > 0 ? allPeriods[allPeriods.length - 1].name : ''
+      setCurrentPeriod(activeName)
+      setScannedPeriod(activeName)
       setAdminList(adminRes.data.adminList || [])
     } catch (err) {
       console.error(err)
@@ -106,36 +127,86 @@ function Admin() {
     }
   }
 
-  // ── 期數 ──────────────────────────────────────────────
-  const handleSavePeriod = async () => {
-    if (!newPeriod.trim()) {
-      setPeriodMsg({ type: 'error', text: '期數不能為空' })
+  // ── 期數列表管理 ──────────────────────────────────────
+  const handleSelectPeriod = (name) => {
+    if (name === '_new_') {
+      setIsNewPeriod(true)
+      setSelectedPeriodName('_new_')
+      setEditPeriod({ name: '', startDate: '', endDate: '', extendDate: '', rootFolderId: '' })
       return
     }
-    setSaving(true)
+    setIsNewPeriod(false)
+    setSelectedPeriodName(name)
+    const found = periods.find(p => p.name === name)
+    setEditPeriod(found ? { ...found } : null)
+  }
+
+  const handleSavePeriodItem = async () => {
+    if (!editPeriod) return
+    if (!editPeriod.name.trim()) { setPeriodMsg({ type: 'error', text: '期數名稱不能為空' }); return }
+    setPeriodSaving(true)
     setPeriodMsg(null)
     try {
+      let updated
+      if (isNewPeriod) {
+        updated = [...periods, { ...editPeriod, name: editPeriod.name.trim() }]
+      } else {
+        updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod } : p)
+      }
       const res = await axios.get(API_URL, {
-        params: {
-          action: 'setPeriod',
-          period: newPeriod.trim(),
-          startDate,
-          endDate,
-          coverImageUrl,
-          secret: SECRET
-        }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
       })
       if (res.data.success) {
-        setCurrentPeriod(newPeriod.trim())
-        setPeriodMsg({ type: 'success', text: `已更新為「${newPeriod.trim()}」` })
+        setPeriods(updated)
+        setSelectedPeriodName(editPeriod.name.trim())
+        setIsNewPeriod(false)
+        setPeriodMsg({ type: 'success', text: `「${editPeriod.name.trim()}」已儲存` })
       } else {
-        setPeriodMsg({ type: 'error', text: '更新失敗：' + (res.data.error || '未知錯誤') })
+        setPeriodMsg({ type: 'error', text: '儲存失敗' })
       }
     } catch {
-      setPeriodMsg({ type: 'error', text: '更新失敗，請再試一次' })
+      setPeriodMsg({ type: 'error', text: '儲存失敗，請再試一次' })
     } finally {
-      setSaving(false)
+      setPeriodSaving(false)
     }
+  }
+
+  const handleDeletePeriodItem = async () => {
+    if (!selectedPeriodName || isNewPeriod) return
+    if (!window.confirm(`確定要刪除「${selectedPeriodName}」嗎？`)) return
+    setPeriodSaving(true)
+    try {
+      const updated = periods.filter(p => p.name !== selectedPeriodName)
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+      })
+      if (res.data.success) {
+        setPeriods(updated)
+        setSelectedPeriodName('')
+        setEditPeriod(null)
+        setPeriodMsg({ type: 'success', text: `已刪除「${selectedPeriodName}」` })
+      }
+    } catch {
+      setPeriodMsg({ type: 'error', text: '刪除失敗' })
+    } finally {
+      setPeriodSaving(false)
+    }
+  }
+
+  // ── 期數順序調整 ───────────────────────────────────────
+  const handleMovePeriod = async (dir) => {
+    const idx = periods.findIndex(p => p.name === selectedPeriodName)
+    if (idx < 0) return
+    const newIdx = idx + dir
+    if (newIdx < 0 || newIdx >= periods.length) return
+    const updated = [...periods]
+    ;[updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]]
+    try {
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+      })
+      if (res.data.success) setPeriods(updated)
+    } catch { /* silent */ }
   }
 
   // ── 封面圖上傳 ─────────────────────────────────────────
@@ -168,9 +239,18 @@ function Admin() {
       await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
       setCoverImageUrl(url)
-      const res = await axios.get(API_URL, {
-        params: { action: 'setPeriod', period: newPeriod || currentPeriod, startDate, endDate, coverImageUrl: url, secret: SECRET }
+      // 上傳前重抓最新 periods，避免 state 尚未載入時送出空陣列覆蓋設定
+      const freshRes = await axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } })
+      const freshPeriods = freshRes.data.periods?.length ? freshRes.data.periods : periods
+      // 新 GAS 用 setPeriodsConfig，舊 GAS fallback 到 setPeriod
+      let res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
       })
+      if (!res.data.success) {
+        res = await axios.get(API_URL, {
+          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
+        })
+      }
       if (res.data.success) {
         setCoverMsg({ type: 'success', text: '封面圖已更新' })
       } else {
@@ -180,6 +260,38 @@ function Admin() {
       setCoverMsg({ type: 'error', text: '上傳失敗：' + err.message })
     } finally {
       setCoverUploading(false)
+    }
+  }
+
+  // ── 全勤徽章上傳（type: '個人' | '團體'）─────────────────
+  const handleBadgeUpload = async (e, type) => {
+    const file = e.target.files[0]
+    if (!file || !editPeriod || isNewPeriod) return
+    const field = type === '個人' ? 'badgeIndividualUrl' : 'badgeTeamUrl'
+    setBadgeUploading(type)
+    setBadgeMsg(null)
+    try {
+      const compressed = await compressImage(file)
+      const safeName = editPeriod.name.trim().replace(/[/\\]/g, '_') || 'unnamed'
+      const storageRef = ref(storage, `badges/${safeName}_${type}`)
+      await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
+      const url = await getDownloadURL(storageRef)
+      const newPeriod = { ...editPeriod, [field]: url }
+      const updated = periods.map(p => p.name === selectedPeriodName ? newPeriod : p)
+      const res = await axios.get(API_URL, {
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+      })
+      if (res.data.success) {
+        setPeriods(updated)
+        setEditPeriod(newPeriod)
+        setBadgeMsg({ type: 'success', text: `${type}徽章已更新` })
+      } else {
+        setBadgeMsg({ type: 'error', text: '圖片上傳成功但儲存網址失敗' })
+      }
+    } catch (err) {
+      setBadgeMsg({ type: 'error', text: '上傳失敗：' + err.message })
+    } finally {
+      setBadgeUploading(null)
     }
   }
 
@@ -252,7 +364,7 @@ function Admin() {
   const getDisplayName = (user) => user?.global_name || user?.username || user?.id || ''
 
   // ── 篩選邏輯 ───────────────────────────────────────────
-  const periods = [...new Set(allRecords.map(r => r.period))].sort()
+  const periodNames = [...new Set(allRecords.map(r => r.period))].sort()
 
   const filteredRecords = allRecords
     .filter(rec => {
@@ -260,7 +372,7 @@ function Admin() {
       if (filterType && rec.type !== filterType) return false
       if (filterReport === '已回報' && rec.reportStatus !== '已完成') return false
       if (filterReport === '未回報' && rec.reportStatus === '已完成') return false
-      if (filterAttendance && rec.reportStatus !== filterAttendance) return false
+      if (filterAttendance && rec.attendanceStatus !== filterAttendance) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const name = (rec.serverNickname || rec.discordName || '').toLowerCase()
@@ -303,7 +415,7 @@ function Admin() {
     pending: recs.filter(r => r.reportStatus !== '已完成').length,
   })
 
-  const statsByPeriod = periods.map(p => {
+  const statsByPeriod = periodNames.map(p => {
     const recs = allRecords.filter(r => r.period === p)
     const { done, pending } = getReportStats(recs)
     return {
@@ -429,13 +541,35 @@ function Admin() {
       })
       if (res.data.success) {
         setAllRecords(prev => prev.map(r =>
-          r.discordId === rec.discordId && r.period === rec.period ? { ...r, reportStatus: status } : r
+          r.discordId === rec.discordId && r.period === rec.period ? { ...r, attendanceStatus: status } : r
         ))
       }
     } catch (err) {
       console.error(err)
     } finally {
       setAttendanceUpdating(null)
+    }
+  }
+
+  const handleAdminToggleReport = async (rec, newStatus) => {
+    const key = `${rec.discordId}_${rec.period}`
+    setReportUpdating(key)
+    try {
+      const action = newStatus === '已完成' ? 'updateReportStatus' : 'cancelReportStatus'
+      const res = await axios.get(API_URL, {
+        params: { action, discordId: rec.discordId, period: rec.period, secret: SECRET }
+      })
+      if (res.data.success) {
+        setAllRecords(prev => prev.map(r =>
+          r.discordId === rec.discordId && r.period === rec.period
+            ? { ...r, reportStatus: newStatus, reportTime: newStatus === '已完成' ? (res.data.reportTime || new Date().toISOString()) : '' }
+            : r
+        ))
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setReportUpdating(null)
     }
   }
 
@@ -489,10 +623,11 @@ function Admin() {
         sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
         sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
         sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
-        r.folderUrl || ''
+        r.folderUrl || '',
+        r.socialLink || ''
       ]
     })
-    const header = ['暱稱', 'Discord ID', '期數', '類型', '隊伍', '回報狀態', '基礎', '進階', '心得', '資料夾']
+    const header = ['暱稱', 'Discord ID', '期數', '類型', '隊伍', '回報狀態', '基礎', '進階', '心得', '資料夾', '社群打卡連結']
     const csv = [header, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -536,58 +671,172 @@ function Admin() {
       {/* ── 期數管理 ── */}
       <div className="admin-section">
         <h2 className="admin-section-title">📅 期數管理</h2>
-        <p style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>
-          目前期數：<strong style={{ color: '#5865F2' }}>{currentPeriod || '（未設定）'}</strong>
-        </p>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <input
-            type="text"
-            value={newPeriod}
-            onChange={(e) => setNewPeriod(e.target.value)}
-            placeholder="例：第10期 或 2025-06"
-            style={{ margin: 0, flex: 1 }}
-          />
-          <button
-            onClick={handleSavePeriod}
-            disabled={saving}
-            style={{ whiteSpace: 'nowrap', padding: '10px 16px' }}
+        {/* 下拉選單 */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <select
+            value={selectedPeriodName}
+            onChange={e => handleSelectPeriod(e.target.value)}
+            style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 14 }}
           >
-            {saving ? '儲存中...' : '更新'}
-          </button>
+            <option value="">— 選擇期數 —</option>
+            {periods.map(p => (
+              <option key={p.name} value={p.name}>{p.open ? '🟢 ' : ''}{p.name}</option>
+            ))}
+            <option value="_new_">＋ 新增期數</option>
+          </select>
+          {selectedPeriodName && !isNewPeriod && (() => {
+            const idx = periods.findIndex(p => p.name === selectedPeriodName)
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button onClick={() => handleMovePeriod(-1)} disabled={idx <= 0}
+                  style={{ padding: '4px 10px', fontSize: 13, background: idx <= 0 ? '#f0f0f0' : '#5865F2', color: idx <= 0 ? '#bbb' : 'white', border: 'none', borderRadius: 6, cursor: idx <= 0 ? 'default' : 'pointer' }}>▲</button>
+                <button onClick={() => handleMovePeriod(1)} disabled={idx >= periods.length - 1}
+                  style={{ padding: '4px 10px', fontSize: 13, background: idx >= periods.length - 1 ? '#f0f0f0' : '#5865F2', color: idx >= periods.length - 1 ? '#bbb' : 'white', border: 'none', borderRadius: 6, cursor: idx >= periods.length - 1 ? 'default' : 'pointer' }}>▼</button>
+              </div>
+            )
+          })()}
         </div>
 
-        {/* 活動日期 */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動開始</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ margin: 0, fontSize: 13 }}
-            />
+        {/* 編輯區 */}
+        {editPeriod && (
+          <div style={{ background: '#f9f9f9', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* 名稱（新增時可編輯） */}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>期數名稱</label>
+              <input
+                type="text"
+                value={editPeriod.name}
+                onChange={e => setEditPeriod(p => ({ ...p, name: e.target.value }))}
+                disabled={!isNewPeriod}
+                placeholder="例：第三期 / 補交期"
+                style={{ margin: 0, fontSize: 13, background: isNewPeriod ? '#fff' : '#f0f0f0' }}
+              />
+            </div>
+
+            {/* 活動日期 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>開始日期</label>
+                <input type="date" value={editPeriod.startDate || ''} onChange={e => setEditPeriod(p => ({ ...p, startDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>截止日期</label>
+                <input type="date" value={editPeriod.endDate || ''} onChange={e => setEditPeriod(p => ({ ...p, endDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>延長截止（選填）</label>
+                <input type="date" value={editPeriod.extendDate || ''} onChange={e => setEditPeriod(p => ({ ...p, extendDate: e.target.value }))} style={{ margin: 0, fontSize: 13 }} />
+              </div>
+              {editPeriod.extendDate && (
+                <button onClick={() => setEditPeriod(p => ({ ...p, extendDate: '' }))} style={{ fontSize: 12, padding: '8px 10px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#888', marginBottom: 0 }}>
+                  清除
+                </button>
+              )}
+            </div>
+
+            {/* 開放建檔 toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: editPeriod.open ? '#eafaf1' : '#fafafa', borderRadius: 8, padding: '10px 12px', border: `1px solid ${editPeriod.open ? '#2ecc71' : '#ddd'}` }}>
+              <span style={{ fontSize: 13, fontWeight: 'bold', color: editPeriod.open ? '#27ae60' : '#888' }}>
+                {editPeriod.open ? '🟢 開放建檔中' : '⚫ 建檔已關閉'}
+              </span>
+              <button
+                onClick={() => setEditPeriod(p => ({ ...p, open: !p.open }))}
+                style={{ fontSize: 12, padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', background: editPeriod.open ? '#e74c3c' : '#2ecc71', color: '#fff' }}
+              >
+                {editPeriod.open ? '關閉' : '開放'}
+              </button>
+            </div>
+
+            {/* Folder ID（補交期顯示 makeupRootFolder，其他顯示 rootFolderId） */}
+            {editPeriod.name === '補交期' ? (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>補交根目錄 Folder ID</label>
+                <input
+                  type="text"
+                  value={editPeriod.makeupRootFolder || ''}
+                  onChange={e => setEditPeriod(p => ({ ...p, makeupRootFolder: e.target.value }))}
+                  placeholder="Google Drive folder ID"
+                  style={{ margin: 0, fontSize: 13 }}
+                />
+              </div>
+            ) : (
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 2 }}>資料夾根目錄 Folder ID</label>
+                <input
+                  type="text"
+                  value={editPeriod.rootFolderId || ''}
+                  onChange={e => setEditPeriod(p => ({ ...p, rootFolderId: e.target.value }))}
+                  placeholder="Google Drive folder ID"
+                  style={{ margin: 0, fontSize: 13 }}
+                />
+              </div>
+            )}
+
+            {/* 全勤徽章 */}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 8 }}>🏅 全勤徽章</label>
+              {isNewPeriod ? (
+                <p style={{ margin: 0, fontSize: 11, color: '#bbb' }}>請先儲存期數後再上傳徽章</p>
+              ) : (
+                <div style={{ display: 'flex', gap: 16 }}>
+                  {['個人', '團體'].map(type => {
+                    const field = type === '個人' ? 'badgeIndividualUrl' : 'badgeTeamUrl'
+                    const url = editPeriod[field]
+                    const uploading = badgeUploading === type
+                    return (
+                      <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        {url ? (
+                          <img src={url} alt={`${type}徽章`}
+                            style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8 }} />
+                        ) : (
+                          <div style={{ width: 64, height: 64, borderRadius: 8, background: '#f0f0f0', border: '2px dashed #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                            🏅
+                          </div>
+                        )}
+                        <label style={{
+                          display: 'inline-block', padding: '5px 10px', borderRadius: 6,
+                          background: uploading ? '#ccc' : '#5865F2', color: 'white',
+                          cursor: uploading ? 'not-allowed' : 'pointer', fontSize: 11, whiteSpace: 'nowrap'
+                        }}>
+                          {uploading ? '上傳中...' : url ? `換${type}` : `上傳${type}`}
+                          <input type="file" accept="image/*" onChange={e => handleBadgeUpload(e, type)} disabled={!!badgeUploading} style={{ display: 'none' }} />
+                        </label>
+                        <span style={{ fontSize: 11, color: '#888' }}>{type}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              {badgeMsg && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 'bold', color: badgeMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
+                  {badgeMsg.type === 'success' ? '✓ ' : '✕ '}{badgeMsg.text}
+                </p>
+              )}
+            </div>
+
+            {/* 儲存 / 刪除按鈕 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleSavePeriodItem} disabled={periodSaving} style={{ flex: 2 }}>
+                {periodSaving ? '儲存中...' : '儲存'}
+              </button>
+              {!isNewPeriod && (
+                <button onClick={handleDeletePeriodItem} disabled={periodSaving} style={{ flex: 1, background: '#e74c3c' }}>
+                  刪除
+                </button>
+              )}
+            </div>
           </div>
-          <span style={{ color: '#aaa', marginTop: 18 }}>～</span>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#888', fontWeight: 'normal', display: 'block', marginBottom: 2 }}>活動截止</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ margin: 0, fontSize: 13 }}
-            />
-          </div>
-        </div>
-        <p style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>
-          設定後前台會顯示倒數計時，截止日當天 23:59 截止。
+        )}
+
+        <p style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>
+          截止日當天 23:59 截止。系統自動以今日是否在日期範圍內判斷當前期數。
         </p>
 
         {periodMsg && (
-          <p style={{
-            marginTop: 8, fontSize: 13, fontWeight: 'bold',
-            color: periodMsg.type === 'success' ? '#2ecc71' : '#e74c3c'
-          }}>
+          <p style={{ marginTop: 8, fontSize: 13, fontWeight: 'bold', color: periodMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
             {periodMsg.type === 'success' ? '✓ ' : '✕ '}{periodMsg.text}
           </p>
         )}
@@ -604,7 +853,7 @@ function Admin() {
             cursor: coverUploading ? 'not-allowed' : 'pointer', fontSize: 13
           }}>
             {coverUploading ? '上傳中...' : coverImageUrl ? '換一張' : '上傳封面圖'}
-            <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={coverUploading} style={{ display: 'none' }} />
+            <input type="file" accept="image/*" onChange={handleCoverUpload} disabled={coverUploading || loading} style={{ display: 'none' }} />
           </label>
           {coverMsg && (
             <p style={{ marginTop: 6, fontSize: 13, fontWeight: 'bold', color: coverMsg.type === 'success' ? '#2ecc71' : '#e74c3c' }}>
@@ -859,7 +1108,7 @@ function Admin() {
                   color: filterPeriod === '' ? 'white' : '#555'
                 }}
               >全部</button>
-              {periods.map(p => (
+              {periodNames.map(p => (
                 <button
                   key={p}
                   onClick={() => setFilterPeriodAndReset(p)}
@@ -1012,11 +1261,14 @@ function Admin() {
                     <div key={i} className="record-card" style={{ gap: 6 }}>
                       {/* 標頭列 */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 'bold', color: '#5865F2', fontSize: 14 }}>{rec.period}</span>
                           <span className={`type-badge type-badge--${rec.type === '團體' ? 'team' : 'personal'}`}>
                             {rec.type}
                           </span>
+                          {rec.teamName && (
+                            <span style={{ fontSize: 12, color: '#666' }}>／ {rec.teamName}</span>
+                          )}
                           {rec.reportStatus === '已完成'
                             ? <span className="report-badge--done">✅ 已回報</span>
                             : <span className="report-badge--pending">⏳ 未回報</span>
@@ -1107,9 +1359,9 @@ function Admin() {
                         </div>
                       ) : (
                         <>
+                          {/* ── 身份資料 ── */}
                           <p style={{ margin: 0, fontSize: 13, color: '#444' }}>
                             {rec.serverNickname || rec.discordName}
-                            {rec.teamName && <span style={{ color: '#888' }}> ／ {rec.teamName}</span>}
                           </p>
                           <p style={{ margin: 0, fontSize: 11, color: '#aaa' }}>
                             {rec.username ? `@${rec.username}` : rec.discordId} ・ {rec.createdTime ? rec.createdTime.split('T')[0] : ''}
@@ -1119,41 +1371,65 @@ function Admin() {
                               📧 {rec.googleAccounts.join(', ')}
                             </p>
                           )}
-                          {rec.reportTime && (
-                            <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
-                              ✅ 回報時間：{rec.reportTime.split('T')[0]}
-                            </p>
-                          )}
-                          {rec.period !== currentPeriod && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
-                              {['全勤', '未全勤'].map(status => (
-                                <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
-                                  disabled={attendanceUpdating === `${rec.discordId}_${rec.period}`}
-                                  style={{ fontSize: 11, padding: '3px 10px',
-                                    background: rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
-                                    color: rec.reportStatus === status ? 'white' : '#666',
-                                    border: `1px solid ${rec.reportStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
-                                  {status}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {(() => {
-                            const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
-                            if (!sub) return null
-                            return (
-                              <div style={{ display: 'flex', gap: 10, fontSize: 12, marginTop: 2 }}>
-                                <span>基礎 <StatusBadge value={sub.basic} /></span>
-                                <span>進階 <StatusBadge value={sub.advanced} /></span>
-                                <span>心得 <StatusBadge value={sub.reflection} /></span>
+
+                          {/* ── 期數操作 ── */}
+                          <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 6, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: '#888' }}>已回報：</span>
+                                {[['已完成', '已回報'], ['', '未回報']].map(([status, label]) => (
+                                  <button key={status || 'none'}
+                                    onClick={() => handleAdminToggleReport(rec, status)}
+                                    disabled={reportUpdating === key}
+                                    style={{ fontSize: 11, padding: '3px 10px',
+                                      background: rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#f0f0f0',
+                                      color: rec.reportStatus === status ? 'white' : '#666',
+                                      border: `1px solid ${rec.reportStatus === status ? (status === '已完成' ? '#27ae60' : '#aaa') : '#ddd'}` }}>
+                                    {label}
+                                  </button>
+                                ))}
                               </div>
-                            )
-                          })()}
-                          {rec.folderUrl && (
-                            <a href={rec.folderUrl} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
-                          )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, color: '#888' }}>全勤：</span>
+                                {['全勤', '未全勤'].map(status => (
+                                  <button key={status} onClick={() => handleUpdateAttendance(rec, status)}
+                                    disabled={attendanceUpdating === key}
+                                    style={{ fontSize: 11, padding: '3px 10px',
+                                      background: rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#f0f0f0',
+                                      color: rec.attendanceStatus === status ? 'white' : '#666',
+                                      border: `1px solid ${rec.attendanceStatus === status ? (status === '全勤' ? '#2ecc71' : '#e8b046') : '#ddd'}` }}>
+                                    {status}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            {rec.reportTime && (
+                              <p style={{ margin: 0, fontSize: 11, color: '#7dbb9a' }}>
+                                ✅ 回報時間：{rec.reportTime.split('T')[0]}
+                              </p>
+                            )}
+                            {(() => {
+                              const sub = scanResultMap[`${rec.discordId}_${rec.period}`]
+                              if (!sub) return null
+                              return (
+                                <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                                  <span>基礎 <StatusBadge value={sub.basic} /></span>
+                                  <span>進階 <StatusBadge value={sub.advanced} /></span>
+                                  <span>心得 <StatusBadge value={sub.reflection} /></span>
+                                </div>
+                              )
+                            })()}
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                              {rec.folderUrl && (
+                                <a href={rec.folderUrl} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: 11, color: '#5865F2' }}>📂 開啟資料夾</a>
+                              )}
+                              {rec.socialLink && (
+                                <a href={rec.socialLink} target="_blank" rel="noreferrer"
+                                  style={{ fontSize: 11, color: '#e1306c' }}>🔗 社群打卡</a>
+                              )}
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>

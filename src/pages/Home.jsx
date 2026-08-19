@@ -11,8 +11,9 @@ function Home() {
     const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI)
     const scope = encodeURIComponent('identify')
     const navigate = useNavigate()
-    const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '' })
+    const [activityInfo, setActivityInfo] = useState({ startDate: '', endDate: '', extendDate: '' })
     const [coverImageUrl, setCoverImageUrl] = useState('')
+    const [currentPeriod, setCurrentPeriod] = useState('')
 
     useEffect(() => {
         axios.get(API_URL, { params: { action: 'getPeriod', secret: SECRET } })
@@ -20,9 +21,11 @@ function Home() {
                 if (res.data) {
                     setActivityInfo({
                         startDate: res.data.startDate || '',
-                        endDate: res.data.endDate || ''
+                        endDate: res.data.endDate || '',
+                        extendDate: res.data.extendDate || ''
                     })
                     setCoverImageUrl(res.data.coverImageUrl || '')
+                    setCurrentPeriod(res.data.currentPeriod || '')
                 }
             })
             .catch(() => {})
@@ -38,10 +41,16 @@ function Home() {
             {coverImageUrl && (
                 <img src={coverImageUrl} alt="封面" style={{ width: '100%', borderRadius: 12, display: 'block', marginBottom: 12 }} />
             )}
-            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} />
+            <ActivityInfo startDate={activityInfo.startDate} endDate={activityInfo.endDate} extendDate={activityInfo.extendDate} currentPeriod={currentPeriod} />
             <p>請用 Discord 登入</p>
             <button onClick={handleDiscordLogin}>
                 Discord 登入
+            </button>
+            <button
+                onClick={() => navigate('/squad')}
+                style={{ background: 'transparent', color: '#5865F2', border: '1px solid #5865F2', fontSize: 13 }}
+            >
+                🎨 隊伍徵求版
             </button>
             <button
                 onClick={() => navigate('/help')}
