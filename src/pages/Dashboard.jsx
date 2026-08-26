@@ -651,7 +651,8 @@ function Dashboard() {
 
       {/* 期數分組：邀請卡 / 建檔 CTA / 紀錄卡，每期獨立一區 */}
       {(() => {
-        const ownRecords = records.map((r, i) => ({ ...r, _idx: i })).filter(r => !r.linkedViaEmail)
+        const memberPeriods = new Set(records.filter(r => r.linkedViaEmail).map(r => r.period))
+        const ownRecords = records.map((r, i) => ({ ...r, _idx: i, _isTeamLeader: r.type === '團體' && !r.linkedViaEmail && !memberPeriods.has(r.period) })).filter(r => !r.linkedViaEmail)
         const pendingInvites = records.filter(r =>
           r.linkedViaEmail && !ownRecords.some(own => own.period === r.period)
         )
@@ -782,14 +783,21 @@ function Dashboard() {
                         <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`} style={{ fontSize: 11 }}>
                           {record.type}
                         </span>
-                        {record.type === '團體' && !record.linkedViaEmail && (
+                        {record._isTeamLeader && (
                           <span style={{ fontSize: 11, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '1px 7px' }}>👑 隊長</span>
                         )}
-                        {record.type === '團體' && record.linkedViaEmail && (
+                        {record.type === '團體' && !record._isTeamLeader && (
                           <span style={{ fontSize: 11, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 10, padding: '1px 7px' }}>👥 隊員</span>
                         )}
                         {record.teamName && (
-                          <span style={{ fontSize: 12, color: '#888' }}>／ {record.teamName}{record.linkedViaEmail && record.serverNickname ? `（隊長：${record.serverNickname}）` : ''}</span>
+                          <span style={{ fontSize: 12, color: '#888' }}>
+                            ／ {record.teamName}
+                            {!record._isTeamLeader && record.type === '團體' && (() => {
+                              const leaderNickname = (record.linkedViaEmail ? record.serverNickname : null)
+                                || records.find(r => r.linkedViaEmail && r.period === record.period)?.serverNickname
+                              return leaderNickname ? `（隊長：${leaderNickname}）` : ''
+                            })()}
+                          </span>
                         )}
                       </div>
                       <span style={{
@@ -817,24 +825,26 @@ function Dashboard() {
                         <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
                           {record.type}
                         </span>
-                        {record.type === '團體' && !record.linkedViaEmail && (
+                        {record._isTeamLeader && (
                           <span style={{ fontSize: 12, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '2px 8px' }}>👑 隊長</span>
                         )}
-                        {record.type === '團體' && record.linkedViaEmail && (
+                        {record.type === '團體' && !record._isTeamLeader && (
                           <span style={{ fontSize: 12, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 10, padding: '2px 8px' }}>👥 隊員</span>
                         )}
                       </div>
                     </div>
 
-                    {!record.linkedViaEmail && record.serverNickname && (
+                    {record._isTeamLeader && record.serverNickname && (
                       <p style={{ margin: 0, color: '#555', fontSize: 14 }}>👤 {record.serverNickname}</p>
                     )}
                     {record.teamName && (
                       <p style={{ margin: 0, color: '#555', fontSize: 14 }}>
                         🏷️ 隊伍：{record.teamName}
-                        {record.linkedViaEmail && record.serverNickname && (
-                          <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>（隊長：{record.serverNickname}）</span>
-                        )}
+                        {!record._isTeamLeader && record.type === '團體' && (() => {
+                          const leaderNickname = (record.linkedViaEmail ? record.serverNickname : null)
+                            || records.find(r => r.linkedViaEmail && r.period === record.period)?.serverNickname
+                          return leaderNickname ? <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>（隊長：{leaderNickname}）</span> : null
+                        })()}
                       </p>
                     )}
 
