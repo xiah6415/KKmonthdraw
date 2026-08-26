@@ -215,8 +215,11 @@ function Dashboard() {
   }
 
   const saveEdit = async (record) => {
-    const filtered = editAccounts.filter(a => a.trim() !== '')
-    if (filtered.length === 0) {
+    const isLeader = record._isTeamLeader
+    const filtered = isLeader
+      ? editAccounts.filter(a => a.trim() !== '')
+      : (Array.isArray(record.googleAccounts) ? record.googleAccounts : (record.googleAccounts || '').split(',').map(s => s.trim()).filter(Boolean))
+    if (isLeader && filtered.length === 0) {
       setEditError('至少需要一個 Google 帳號')
       return
     }
@@ -231,7 +234,7 @@ function Dashboard() {
         serverNickname: editNickname.trim(),
         secret: SECRET
       }
-      if (record.type === '團體') params.teamName = editTeamName.trim()
+      if (isLeader && record.type === '團體') params.teamName = editTeamName.trim()
       const res = await axios.get(API_URL, { params })
       if (res.data.success) {
         setRecords(prev => prev.map((r, i) => {
@@ -866,7 +869,7 @@ function Dashboard() {
                             style={{ margin: 0 }}
                           />
                         </div>
-                        {record.type === '團體' && (
+                        {record._isTeamLeader && (
                           <div style={{ marginBottom: 10 }}>
                             <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>🏷️ 隊伍名稱</label>
                             <input
@@ -878,32 +881,34 @@ function Dashboard() {
                             />
                           </div>
                         )}
-                        <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
-                        {editAccounts.map((acc, i) => (
-                          <div key={i} className="account-row">
-                            <input
-                              type="email"
-                              value={acc}
-                              onChange={(e) => {
-                                const next = [...editAccounts]
-                                next[i] = e.target.value
-                                setEditAccounts(next)
-                              }}
-                              placeholder="example@gmail.com"
-                            />
-                            {editAccounts.length > 1 && (
-                              <button
-                                className="btn-remove"
-                                onClick={() => setEditAccounts(editAccounts.filter((_, j) => j !== i))}
-                              >✕</button>
-                            )}
-                          </div>
-                        ))}
-                        {record.type === '團體' && (
-                          <button
-                            className="btn-add"
-                            onClick={() => setEditAccounts([...editAccounts, ''])}
-                          >+ 新增帳號</button>
+                        {record._isTeamLeader && (
+                          <>
+                            <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 4 }}>📧 Google 帳號</label>
+                            {editAccounts.map((acc, i) => (
+                              <div key={i} className="account-row">
+                                <input
+                                  type="email"
+                                  value={acc}
+                                  onChange={(e) => {
+                                    const next = [...editAccounts]
+                                    next[i] = e.target.value
+                                    setEditAccounts(next)
+                                  }}
+                                  placeholder="example@gmail.com"
+                                />
+                                {editAccounts.length > 1 && (
+                                  <button
+                                    className="btn-remove"
+                                    onClick={() => setEditAccounts(editAccounts.filter((_, j) => j !== i))}
+                                  >✕</button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              className="btn-add"
+                              onClick={() => setEditAccounts([...editAccounts, ''])}
+                            >+ 新增帳號</button>
+                          </>
                         )}
                         {editError && <p className="edit-error">{editError}</p>}
                         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -923,25 +928,26 @@ function Dashboard() {
                         </div>
                       </div>
                     ) : (
-                      record.googleAccounts && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        {record._isTeamLeader && record.googleAccounts && (
                           <div style={{ fontSize: 12, color: '#888' }}>
                             📧 {Array.isArray(record.googleAccounts)
                               ? record.googleAccounts.join(', ')
                               : record.googleAccounts}
                           </div>
-                          <button
-                            className="btn-edit"
-                            onClick={() => startEdit(index)}
-                          >
-                            編輯
-                          </button>
-                        </div>
-                      )
+                        )}
+                        <button
+                          className="btn-edit"
+                          style={{ marginLeft: 'auto' }}
+                          onClick={() => startEdit(index)}
+                        >
+                          編輯
+                        </button>
+                      </div>
                     ))}
 
                     {/* 回報 */}
-                    {isActiveRecord(record) && (record.attendanceStatus === '全勤' ? (
+                    {isActiveRecord(record) && (record.type !== '團體' || record._isTeamLeader) && (record.attendanceStatus === '全勤' ? (
                       <div className="report-done">✅ 已全勤</div>
                     ) : record.reportStatus === '已完成' ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -974,7 +980,7 @@ function Dashboard() {
                       <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
                     )}
 
-                    {isActiveRecord(record) && (
+                    {isActiveRecord(record) && (record.type !== '團體' || record._isTeamLeader) && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
                         <div style={{ display: 'flex', gap: 6 }}>
