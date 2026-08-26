@@ -785,8 +785,11 @@ function Dashboard() {
                         {record.type === '團體' && !record.linkedViaEmail && (
                           <span style={{ fontSize: 11, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '1px 7px' }}>👑 隊長</span>
                         )}
+                        {record.type === '團體' && record.linkedViaEmail && (
+                          <span style={{ fontSize: 11, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 10, padding: '1px 7px' }}>👥 隊員</span>
+                        )}
                         {record.teamName && (
-                          <span style={{ fontSize: 12, color: '#888' }}>／ {record.teamName}</span>
+                          <span style={{ fontSize: 12, color: '#888' }}>／ {record.teamName}{record.linkedViaEmail && record.serverNickname ? `（隊長：${record.serverNickname}）` : ''}</span>
                         )}
                       </div>
                       <span style={{
@@ -817,14 +820,22 @@ function Dashboard() {
                         {record.type === '團體' && !record.linkedViaEmail && (
                           <span style={{ fontSize: 12, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '2px 8px' }}>👑 隊長</span>
                         )}
+                        {record.type === '團體' && record.linkedViaEmail && (
+                          <span style={{ fontSize: 12, background: '#f0f4ff', color: '#5865F2', border: '1px solid #c5ceff', borderRadius: 10, padding: '2px 8px' }}>👥 隊員</span>
+                        )}
                       </div>
                     </div>
 
-                    {record.serverNickname && (
+                    {!record.linkedViaEmail && record.serverNickname && (
                       <p style={{ margin: 0, color: '#555', fontSize: 14 }}>👤 {record.serverNickname}</p>
                     )}
                     {record.teamName && (
-                      <p style={{ margin: 0, color: '#555', fontSize: 14 }}>🏷️ 隊伍：{record.teamName}</p>
+                      <p style={{ margin: 0, color: '#555', fontSize: 14 }}>
+                        🏷️ 隊伍：{record.teamName}
+                        {record.linkedViaEmail && record.serverNickname && (
+                          <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>（隊長：{record.serverNickname}）</span>
+                        )}
+                      </p>
                     )}
 
                     <p style={{ margin: 0, color: '#aaa', fontSize: 12 }}>
