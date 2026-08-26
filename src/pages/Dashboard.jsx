@@ -782,6 +782,9 @@ function Dashboard() {
                         <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`} style={{ fontSize: 11 }}>
                           {record.type}
                         </span>
+                        {record.type === '團體' && !record.linkedViaEmail && (
+                          <span style={{ fontSize: 11, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '1px 7px' }}>👑 隊長</span>
+                        )}
                         {record.teamName && (
                           <span style={{ fontSize: 12, color: '#888' }}>／ {record.teamName}</span>
                         )}
@@ -807,9 +810,14 @@ function Dashboard() {
                         {record.period}
                         <span className="current-badge">開放中</span>
                       </span>
-                      <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
-                        {record.type}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className={`type-badge type-badge--${record.type === '團體' ? 'team' : 'personal'}`}>
+                          {record.type}
+                        </span>
+                        {record.type === '團體' && !record.linkedViaEmail && (
+                          <span style={{ fontSize: 12, background: '#fff8e1', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: 10, padding: '2px 8px' }}>👑 隊長</span>
+                        )}
+                      </div>
                     </div>
 
                     {record.serverNickname && (
