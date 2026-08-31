@@ -980,7 +980,7 @@ function Dashboard() {
                       <p style={{ margin: 0, fontSize: 12, color: '#e74c3c', fontWeight: 'bold' }}>{reportError[index]}</p>
                     )}
 
-                    {isActiveRecord(record) && (record.type !== '團體' || record._isTeamLeader) && (
+                    {isActiveRecord(record) && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <label style={{ fontSize: 12, color: '#888' }}>🔗 社群打卡連結</label>
                         <div style={{ display: 'flex', gap: 6 }}>
