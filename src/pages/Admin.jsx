@@ -489,11 +489,17 @@ function Admin() {
     setExporting(true)
     setExportMsg(null)
     try {
+      const exportPeriod = filterPeriod || currentPeriod
+      const periodKeys = Object.keys(scanResultMap).filter(k => k.endsWith('_' + exportPeriod))
+      const preScanned = periodKeys.length > 0
+        ? Object.fromEntries(periodKeys.map(k => [k, scanResultMap[k]]))
+        : null
       const res = await axios.get(API_URL, {
         params: {
           action: 'exportToSheet',
-          period: filterPeriod || currentPeriod,
-          secret: SECRET
+          period: exportPeriod,
+          secret: SECRET,
+          ...(preScanned && { submissionData: JSON.stringify(preScanned) })
         }
       })
       if (res.data.success) {

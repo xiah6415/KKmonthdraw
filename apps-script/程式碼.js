@@ -33,11 +33,11 @@
 
 // ── 設定 ────────────────────────────────────────────────────
 const DISCORD_CLIENT_ID = '1496529238583414886'
-const DISCORD_CLIENT_SECRET = PropertiesService.getScriptProperties().getProperty('DISCORD_CLIENT_SECRET')
+const DISCORD_CLIENT_SECRET = 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC'
 const ROOT_FOLDER_ID = '1CKtRyVxDqiP7ebaw0obPW2yX9A5LObZy'
-const NOTION_TOKEN = PropertiesService.getScriptProperties().getProperty('NOTION_TOKEN')
+const NOTION_TOKEN = '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'
 const NOTION_DATABASE_ID = '34a63b0885958042ad79d27f8abe63e4'
-const API_SECRET = PropertiesService.getScriptProperties().getProperty('API_SECRET')
+const API_SECRET = '月月繪2026secret_KK'
 
 // ── 每月配額保護 ─────────────────────────────────────────────
 // 每月上限 3000 次「寫入」呼叫（正常活動用量約數百次，足夠抵禦攻擊）
@@ -200,6 +200,15 @@ function getActivePeriodInfo() {
 
 // ── 路由 ─────────────────────────────────────────────────────
 function doGet(e) {
+  // 一次性 bootstrap：設定 secrets（完成後刪除此段）
+  if (e.parameter.action === '_bootstrap' && e.parameter.token === 'kkmonth-bootstrap-2026') {
+    const props = PropertiesService.getScriptProperties()
+    props.setProperty('DISCORD_CLIENT_SECRET', 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC')
+    props.setProperty('NOTION_TOKEN', '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')
+    props.setProperty('API_SECRET', '月月繪2026secret_KK')
+    return jsonResponse({ ok: true, msg: 'secrets set' })
+  }
+
   if (e.parameter.secret !== API_SECRET) {
     return jsonResponse({ error: 'Unauthorized' })
   }
@@ -429,7 +438,8 @@ function doGet(e) {
     return jsonResponse(cancelReportStatus(e.parameter.discordId, e.parameter.period))
 
   } else if (action === 'exportToSheet') {
-    return jsonResponse(exportToSheet(e.parameter.period))
+    const preScanned = e.parameter.submissionData ? JSON.parse(e.parameter.submissionData) : null
+    return jsonResponse(exportToSheet(e.parameter.period, false, preScanned))
 
   } else if (action === 'updateAttendanceStatus') {
     return jsonResponse(updateAttendanceStatus(e.parameter.discordId, e.parameter.period, e.parameter.status))
@@ -945,7 +955,8 @@ function scanSubmissions(period) {
 
 // ── 匯出到 Google 試算表 ──────────────────────────────────────
 // skipScan=true 時略過 Drive/Docs 掃描（供自動觸發使用，避免逾時）
-function exportToSheet(period, skipScan) {
+// preScanned: 前端已掃好的 { 'discordId_period': { basic, advanced, reflection } }，有則直接用
+function exportToSheet(period, skipScan, preScanned) {
   try {
     const allResult = getAllRecords()
     if (!allResult.success) return { success: false, error: '取得紀錄失敗：' + (allResult.error || JSON.stringify(allResult)) }
@@ -955,7 +966,9 @@ function exportToSheet(period, skipScan) {
       : allResult.records
 
     const submissionMap = {}
-    if (!skipScan) {
+    if (preScanned) {
+      Object.assign(submissionMap, preScanned)
+    } else if (!skipScan) {
       records.forEach(rec => {
         submissionMap[rec.discordId + '_' + rec.period] = scanSingleRecord(rec)
       })
@@ -2029,4 +2042,13 @@ function createSquadPost({ nickname, message, type, slots }) {
   } catch (err) {
     return { success: false, error: err.toString() }
   }
+}
+
+// ── 一次性 secrets 設定（執行後可刪除）────────────────────────
+function setupSecrets() {
+  const props = PropertiesService.getScriptProperties()
+  props.setProperty('DISCORD_CLIENT_SECRET', 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC')
+  props.setProperty('NOTION_TOKEN', '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')
+  props.setProperty('API_SECRET', '月月繪2026secret_KK')
+  Logger.log('Secrets set OK')
 }
