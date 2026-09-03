@@ -438,8 +438,7 @@ function doGet(e) {
     return jsonResponse(cancelReportStatus(e.parameter.discordId, e.parameter.period))
 
   } else if (action === 'exportToSheet') {
-    const preScanned = e.parameter.submissionData ? JSON.parse(e.parameter.submissionData) : null
-    return jsonResponse(exportToSheet(e.parameter.period, false, preScanned))
+    return jsonResponse(exportToSheet(e.parameter.period, false, null))
 
   } else if (action === 'updateAttendanceStatus') {
     return jsonResponse(updateAttendanceStatus(e.parameter.discordId, e.parameter.period, e.parameter.status))
@@ -524,6 +523,21 @@ function doGet(e) {
 
   } else {
     return jsonResponse({ error: 'Unknown action' })
+  }
+}
+
+// ── POST 路由（僅供 exportToSheet 帶大量掃描資料）────────────────
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents)
+    if (body.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
+    if (body.action === 'exportToSheet') {
+      const preScanned = body.submissionData || null
+      return jsonResponse(exportToSheet(body.period, false, preScanned))
+    }
+    return jsonResponse({ error: 'Unknown action' })
+  } catch (err) {
+    return jsonResponse({ error: err.toString() })
   }
 }
 

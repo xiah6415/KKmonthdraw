@@ -494,14 +494,12 @@ function Admin() {
       const preScanned = periodKeys.length > 0
         ? Object.fromEntries(periodKeys.map(k => [k, scanResultMap[k]]))
         : null
-      const res = await axios.get(API_URL, {
-        params: {
-          action: 'exportToSheet',
-          period: exportPeriod,
-          secret: SECRET,
-          ...(preScanned && { submissionData: JSON.stringify(preScanned) })
-        }
-      })
+      const res = await axios.post(API_URL, JSON.stringify({
+        action: 'exportToSheet',
+        period: exportPeriod,
+        secret: SECRET,
+        ...(preScanned && { submissionData: preScanned })
+      }), { headers: { 'Content-Type': 'text/plain' } })
       if (res.data.success) {
         setExportMsg({ type: 'success', url: res.data.sheetUrl, text: '匯出成功！' })
       } else {
