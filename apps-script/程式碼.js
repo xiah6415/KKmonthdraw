@@ -947,7 +947,8 @@ function scanSingleRecord(rec) {
     while (files.hasNext()) {
       const f = files.next()
       if (f.getName().includes('心得') && f.getMimeType() === MimeType.GOOGLE_DOCS) {
-        reflection = DocumentApp.openById(f.getId()).getBody().getText().trim().length > 0
+        const text = DocumentApp.openById(f.getId()).getBody().getText().trim()
+        reflection = text.length === 0 ? false : text.length < 500 ? 'partial' : true
         break
       }
     }
@@ -1039,7 +1040,7 @@ function exportToSheet(period, skipScan, preScanned) {
           r.period || '',
           sub.basic === true ? '✓' : sub.basic === 'partial' ? '△' : sub.basic === false ? '✗' : '-',
           sub.advanced === true ? '✓' : sub.advanced === 'partial' ? '△' : sub.advanced === false ? '✗' : '-',
-          sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
+          sub.reflection === true ? '✓' : sub.reflection === 'partial' ? '△' : sub.reflection === false ? '✗' : '-',
           r.socialLink || ''
         ]
       })

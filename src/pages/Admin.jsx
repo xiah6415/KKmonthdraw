@@ -626,7 +626,7 @@ function Admin() {
         r.reportStatus === '已完成' ? '已回報' : '未回報',
         sub.basic === true ? '✓' : sub.basic === 'partial' ? '△' : sub.basic === false ? '✗' : '-',
         sub.advanced === true ? '✓' : sub.advanced === 'partial' ? '△' : sub.advanced === false ? '✗' : '-',
-        sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
+        sub.reflection === true ? '✓' : sub.reflection === 'partial' ? '△' : sub.reflection === false ? '✗' : '-',
         r.folderUrl || '',
         r.socialLink || ''
       ]
