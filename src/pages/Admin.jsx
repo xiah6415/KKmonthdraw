@@ -624,8 +624,8 @@ function Admin() {
         r.type || '',
         r.teamName || '',
         r.reportStatus === '已完成' ? '已回報' : '未回報',
-        sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
-        sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
+        sub.basic === true ? '✓' : sub.basic === 'partial' ? '△' : sub.basic === false ? '✗' : '-',
+        sub.advanced === true ? '✓' : sub.advanced === 'partial' ? '△' : sub.advanced === false ? '✗' : '-',
         sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
         r.folderUrl || '',
         r.socialLink || ''
@@ -644,6 +644,7 @@ function Admin() {
 
   const StatusBadge = ({ value }) => {
     if (value === true) return <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>✓</span>
+    if (value === 'partial') return <span style={{ color: '#e67e22', fontWeight: 'bold' }}>△</span>
     if (value === false) return <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>✗</span>
     return <span style={{ color: '#bbb' }}>-</span>
   }

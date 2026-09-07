@@ -933,7 +933,14 @@ function scanSingleRecord(rec) {
       const it = folder.getFoldersByName(name)
       if (!it.hasNext()) return false
       const sub = it.next()
-      return sub.getFiles().hasNext() || sub.getFolders().hasNext()
+      let count = 0
+      const subFiles = sub.getFiles()
+      while (subFiles.hasNext()) { subFiles.next(); count++ }
+      const subFolders = sub.getFolders()
+      while (subFolders.hasNext()) { subFolders.next(); count++ }
+      if (count === 0) return false
+      if (count < 10) return 'partial'
+      return true
     }
     let reflection = false
     const files = folder.getFiles()
@@ -1030,8 +1037,8 @@ function exportToSheet(period, skipScan, preScanned) {
           r.reportTime ? r.reportTime.split('T')[0] : '',
           r.createdTime ? r.createdTime.split('T')[0] : '',
           r.period || '',
-          sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
-          sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
+          sub.basic === true ? '✓' : sub.basic === 'partial' ? '△' : sub.basic === false ? '✗' : '-',
+          sub.advanced === true ? '✓' : sub.advanced === 'partial' ? '△' : sub.advanced === false ? '✗' : '-',
           sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
           r.socialLink || ''
         ]
