@@ -105,10 +105,17 @@ function Dashboard() {
             params: {
               action: 'getUserRecords',
               discordId: storedUser.id,
+              sessionToken: storedUser.sessionToken,
               discordUsername: storedUser.username,
               secret: SECRET
             }
           })
+          if (res.data.error === 'Unauthorized') {
+            // 舊登入沒有 sessionToken，或 token 已過期，導回首頁重新登入
+            localStorage.removeItem('discordUser')
+            navigate('/')
+            return
+          }
           if (!res.data.success) {
             setError('查詢紀錄失敗：' + JSON.stringify(res.data))
             return
@@ -229,6 +236,7 @@ function Dashboard() {
       const params = {
         action: 'updateGoogleAccounts',
         discordId: discordUser.id,
+        sessionToken: discordUser.sessionToken,
         period: record.period,
         googleAccounts: filtered.join(','),
         serverNickname: editNickname.trim(),
@@ -264,6 +272,7 @@ function Dashboard() {
         params: {
           action: 'updateReportStatus',
           discordId: discordUser.id,
+          sessionToken: discordUser.sessionToken,
           period: record.period,
           secret: SECRET
         }
@@ -366,7 +375,7 @@ function Dashboard() {
     setSocialLinkMsg(prev => ({ ...prev, [period]: null }))
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'updateSocialLink', discordId: discordUser.id, period, url, secret: SECRET }
+        params: { action: 'updateSocialLink', discordId: discordUser.id, sessionToken: discordUser.sessionToken, period, url, secret: SECRET }
       })
       if (res.data.success) {
         setRecords(prev => prev.map(r => r.period === period ? { ...r, socialLink: url } : r))
@@ -389,6 +398,7 @@ function Dashboard() {
         params: {
           action: 'cancelReportStatus',
           discordId: discordUser.id,
+          sessionToken: discordUser.sessionToken,
           period: record.period,
           secret: SECRET
         }
@@ -418,7 +428,7 @@ function Dashboard() {
     setProfileEmailMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'saveProfile', discordId: discordUser.id, email, secret: SECRET }
+        params: { action: 'saveProfile', discordId: discordUser.id, sessionToken: discordUser.sessionToken, email, secret: SECRET }
       })
       if (res.data.success) {
         setProfileEmail(email)
@@ -480,6 +490,7 @@ function Dashboard() {
           type: buildType,
           teamName: buildTeamName.trim(),
           discordId: discordUser.id,
+          sessionToken: discordUser.sessionToken,
           discordName: discordUser.global_name || discordUser.username || discordUser.id,
           discordUsername: discordUser.username || '',
           serverNickname: buildNickname.trim(),
@@ -542,6 +553,7 @@ function Dashboard() {
         params: {
           action: 'acceptTeamInvite',
           discordId: discordUser.id,
+          sessionToken: discordUser.sessionToken,
           discordName: discordUser.global_name || discordUser.username || discordUser.id,
           discordUsername: discordUser.username || '',
           period: record.period,
@@ -564,7 +576,7 @@ function Dashboard() {
     setInviteProcessing(record.notionPageId)
     try {
       await axios.get(API_URL, {
-        params: { action: 'declineTeamInvite', discordId: discordUser.id, teamPageId: record.notionPageId, secret: SECRET }
+        params: { action: 'declineTeamInvite', discordId: discordUser.id, sessionToken: discordUser.sessionToken, teamPageId: record.notionPageId, secret: SECRET }
       })
       setRecords(prev => prev.filter(r => r.notionPageId !== record.notionPageId))
     } catch { /* silent */ }
