@@ -490,14 +490,18 @@ function Admin() {
     setExporting(true)
     setExportMsg(null)
     try {
-      const res = await axios.get(API_URL, {
-        params: {
-          action: 'exportToSheet',
-          period: filterPeriod || currentPeriod,
-          sessionToken: discordUser?.sessionToken,
-          secret: SECRET
-        }
-      })
+      const exportPeriod = filterPeriod || currentPeriod
+      const periodKeys = Object.keys(scanResultMap).filter(k => k.endsWith('_' + exportPeriod))
+      const preScanned = periodKeys.length > 0
+        ? Object.fromEntries(periodKeys.map(k => [k, scanResultMap[k]]))
+        : null
+      const res = await axios.post(API_URL, JSON.stringify({
+        action: 'exportToSheet',
+        period: exportPeriod,
+        secret: SECRET,
+        sessionToken: discordUser?.sessionToken,
+        ...(preScanned && { submissionData: preScanned })
+      }), { headers: { 'Content-Type': 'text/plain' } })
       if (res.data.success) {
         setExportMsg({ type: 'success', url: res.data.sheetUrl, text: '匯出成功！' })
       } else {
@@ -623,9 +627,9 @@ function Admin() {
         r.type || '',
         r.teamName || '',
         r.reportStatus === '已完成' ? '已回報' : '未回報',
-        sub.basic === true ? '✓' : sub.basic === false ? '✗' : '-',
-        sub.advanced === true ? '✓' : sub.advanced === false ? '✗' : '-',
-        sub.reflection === true ? '✓' : sub.reflection === false ? '✗' : '-',
+        sub.basic === true ? '✓' : sub.basic === 'partial' ? '△' : sub.basic === false ? '✗' : '-',
+        sub.advanced === true ? '✓' : sub.advanced === 'partial' ? '△' : sub.advanced === false ? '✗' : '-',
+        sub.reflection === true ? '✓' : sub.reflection === 'partial' ? '△' : sub.reflection === false ? '✗' : '-',
         r.folderUrl || '',
         r.socialLink || ''
       ]
@@ -643,6 +647,7 @@ function Admin() {
 
   const StatusBadge = ({ value }) => {
     if (value === true) return <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>✓</span>
+    if (value === 'partial') return <span style={{ color: '#e67e22', fontWeight: 'bold' }}>△</span>
     if (value === false) return <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>✗</span>
     return <span style={{ color: '#bbb' }}>-</span>
   }

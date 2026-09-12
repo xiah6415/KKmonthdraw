@@ -30,6 +30,7 @@ function Dashboard() {
   // 回報上傳
   const [reportingIndex, setReportingIndex] = useState(null)
   const [reportError, setReportError] = useState({}) // { [index]: errorMsg }
+  const [reportConfirm, setReportConfirm] = useState(null) // { index, record }
   // 社群連結
   const [socialLinkDraft, setSocialLinkDraft] = useState({})
   const [socialLinkSaving, setSocialLinkSaving] = useState(null)
@@ -982,10 +983,10 @@ function Dashboard() {
                     ) : (
                       <button
                         className="btn-report"
-                        onClick={() => handleReport(index, record)}
+                        onClick={() => setReportConfirm({ index, record })}
                         disabled={reportingIndex === index}
                       >
-                        {reportingIndex === index ? '通知中...' : '已上傳作業'}
+                        已上傳作業
                       </button>
                     ))}
                     {isActiveRecord(record) && reportError[index] && (
@@ -1072,6 +1073,49 @@ function Dashboard() {
             style={{ maxWidth: '80vw', maxHeight: '70vh', borderRadius: 16, objectFit: 'contain' }} />
           <span style={{ color: 'white', fontSize: 15, fontWeight: 'bold' }}>{badgeZoom.label}</span>
           <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>點擊任意處關閉</span>
+        </div>
+      )}
+
+      {/* 回報確認彈窗 */}
+      {reportConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 16px'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: 16, padding: '28px 24px',
+            maxWidth: 400, width: '100%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)'
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 17, color: '#333' }}>📋 送出回報前請確認</h3>
+            <ul style={{ margin: '0 0 20px', padding: '0 0 0 20px', lineHeight: 2, color: '#444', fontSize: 14 }}>
+              <li>D1–D10 作業圖已全數上傳至作品集資料夾</li>
+              <li>心得已撰寫完成</li>
+              <li>社群打卡已完成</li>
+            </ul>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#888' }}>
+              確認以上皆完成後，再按「確認送出」。
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setReportConfirm(null)}
+                style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: '1px solid #ddd', background: 'white', color: '#666', fontSize: 14, cursor: 'pointer' }}
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const { index, record } = reportConfirm
+                  setReportConfirm(null)
+                  handleReport(index, record)
+                }}
+                style={{ flex: 2, padding: '10px 0', borderRadius: 8, border: 'none', background: '#5865F2', color: 'white', fontSize: 14, fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                確認送出
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
