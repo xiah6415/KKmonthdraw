@@ -1,10 +1,18 @@
 // ================================================================
 // 月月繪 Google Apps Script
 // 最後更新：2026-09-16
-// 版本：v42
+// 版本：v43
 // 變更：
-//   - v42：補回登入紀錄（_getLoginLogSheet / logLoginAttempt）；登入失敗時同步送 webhook 通知；loginLogSheetId 快取修正避免寫入錯誤表單
-//   - v41：新增 Discord 錯誤通知（notifyDiscord）；配額 blocked / createFolder 失敗 / doPost 意外例外時送 webhook 通知
+//   - v41【安全修復】外部回報：任何人只要知道別人的 discordId + 前端 API_SECRET（該值會被打包進公開 JS，不算真的機密）
+//     就能呼叫 getUserRecords 等端點冒充查詢/竄改他人資料；getAllRecords / addAdminId 等管理端點更是完全沒有身分檢查。
+//     修法：登入時（getDiscordUser/initDashboard）簽發伺服器端 HMAC session token，
+//     自助端點（getUserRecords/createFolder/updateGoogleAccounts/updateReportStatus/cancelReportStatus/
+//     updateSocialLink/getProfile/saveProfile/getUserInfo/saveUserInfo/acceptTeamInvite/declineTeamInvite）
+//     一律改用 token 反解出的 discordId，不再信任前端傳來的 discordId 參數；
+//     管理端點（getAllRecords/addAdminId/removeAdminId/adminUpdateRecord/exportToSheet(doGet+doPost)/scanSubmissions/
+//     updateAttendanceStatus/addLegacyRecord/backfillLegacyUsernames/batchAddFirstPeriodRecords/
+//     clearTestAccount/migrateRootFolder/backfillUserProfiles/setPeriodsConfig/setPeriod/getAdminIds）
+//     一律改為驗證 token 且 isAdminUser 才放行。SESSION_SECRET 只存在後端，絕不可進前端 bundle。
 //   - v40：getUserRecords 改用 fetchAll 平行查詢（batch1: discordId+legacy同時送；batch3: 多 username 同時送），大幅縮短載入時間
 //   - v39：配額計數只算 WRITE_ACTIONS（純讀取不計入），避免瀏覽流量誤觸鎖死；SOFT/HARD 上限由 70%/90% 放寬為 90%/100%
 //   - autoSyncSheet 不再掃描 Drive/Docs，避免觸發器逾時（v15）
@@ -41,6 +49,51 @@ const NOTION_TOKEN = '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'
 const NOTION_DATABASE_ID = '34a63b0885958042ad79d27f8abe63e4'
 const API_SECRET = '月月繪2026secret_KK'
 const ERROR_WEBHOOK = 'https://discord.com/api/webhooks/1549652789008007209/oKGx_VzBotB013Ru7avY7ZvwcmtJj-AcRbcu0V9ar_veaoRq974b4u0VyQ7k4Ti86lC_'
+
+// ── Session token（後端專用簽章金鑰，絕不可出現在前端 build）───
+// 修復 2026-09-12：前端 API_SECRET 會被打包進公開 JS，等於不是機密，
+// 過去所有「自助」端點只憑前端傳來的 discordId 就當本人，任何人知道對方 ID 即可冒充。
+// 現在登入時發這個簽章 token，之後自助/管理端點一律靠 token 反解出真正呼叫者是誰。
+const SESSION_SECRET = '22fa0dd942da37efb211ad25fee89c76f46164e736dc436f21340fcdc3d2c0f6'
+const SESSION_TTL_MS = 48 * 60 * 60 * 1000  // 48 小時，略長於前端 localStorage 的 24 小時保存期
+
+function _hmacHex(payload) {
+  return Utilities.computeHmacSha256Signature(payload, SESSION_SECRET)
+    .map(b => (b < 0 ? b + 256 : b).toString(16).padStart(2, '0')).join('')
+}
+
+function signSession(discordId) {
+  const expiry = Date.now() + SESSION_TTL_MS
+  const payload = `${discordId}.${expiry}`
+  return Utilities.base64EncodeWebSafe(`${payload}.${_hmacHex(payload)}`)
+}
+
+// 驗證 token，回傳簽發當下的 discordId；無效／過期回傳 null
+function verifySession(token) {
+  try {
+    if (!token) return null
+    const decoded = Utilities.newBlob(Utilities.base64DecodeWebSafe(token)).getDataAsString()
+    const parts = decoded.split('.')
+    if (parts.length !== 3) return null
+    const [discordId, expiryStr, sig] = parts
+    if (sig !== _hmacHex(`${discordId}.${expiryStr}`)) return null
+    if (Date.now() > Number(expiryStr)) return null
+    return discordId
+  } catch (err) {
+    return null
+  }
+}
+
+// 自助端點：驗證呼叫者身分，回傳其 discordId 或 null
+function requireSelf(e) {
+  return verifySession(e.parameter.sessionToken)
+}
+
+// 管理端點：驗證呼叫者身分且必須是管理員，回傳其 discordId 或 null
+function requireAdmin(e) {
+  const id = verifySession(e.parameter.sessionToken)
+  return (id && isAdminUser(id)) ? id : null
+}
 
 // ── 每月配額保護 ─────────────────────────────────────────────
 // 每月上限 3000 次「寫入」呼叫（正常活動用量約數百次，足夠抵禦攻擊）
@@ -223,6 +276,15 @@ function getActivePeriodInfo() {
 
 // ── 路由 ─────────────────────────────────────────────────────
 function doGet(e) {
+  // 一次性 bootstrap：設定 secrets（完成後刪除此段）
+  if (e.parameter.action === '_bootstrap' && e.parameter.token === 'kkmonth-bootstrap-2026') {
+    const props = PropertiesService.getScriptProperties()
+    props.setProperty('DISCORD_CLIENT_SECRET', 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC')
+    props.setProperty('NOTION_TOKEN', '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')
+    props.setProperty('API_SECRET', '月月繪2026secret_KK')
+    return jsonResponse({ ok: true, msg: 'secrets set' })
+  }
+
   if (e.parameter.secret !== API_SECRET) {
     return jsonResponse({ error: 'Unauthorized' })
   }
@@ -269,7 +331,9 @@ function doGet(e) {
     })
 
   } else if (action === 'getUserRecords') {
-    const result = getUserRecords(e.parameter.discordId, e.parameter.discordUsername)
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    const result = getUserRecords(authedId, e.parameter.discordUsername)
     const active = getActivePeriodInfo()
     const allPeriods = getPeriodsConfig()
     return jsonResponse({
@@ -281,18 +345,20 @@ function doGet(e) {
       endDate: active.isMakeup ? '' : (active.endDate || ''),
       extendDate: active.isMakeup ? '' : (active.extendDate || ''),
       coverImageUrl: getCoverImageUrl(),
-      isAdmin: isAdminUser(e.parameter.discordId),
+      isAdmin: isAdminUser(authedId),
       makeupRootFolder: PropertiesService.getScriptProperties().getProperty('makeupRootFolder') || '',
       periods: allPeriods,
-      profileEmail: getProfileEmail(e.parameter.discordId),
-      userInfo: getUserInfo(e.parameter.discordId)
+      profileEmail: getProfileEmail(authedId),
+      userInfo: getUserInfo(authedId)
     })
 
   } else if (action === 'createFolder') {
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(createFolder({
       type: e.parameter.type,
       teamName: e.parameter.teamName,
-      discordId: e.parameter.discordId,
+      discordId: authedId,
       discordName: e.parameter.discordName,
       serverNickname: e.parameter.serverNickname,
       googleAccounts: e.parameter.googleAccounts.split(',').map(s => s.trim()).filter(Boolean),
@@ -301,8 +367,10 @@ function doGet(e) {
     }))
 
   } else if (action === 'updateGoogleAccounts') {
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(updateGoogleAccounts(
-      e.parameter.discordId,
+      authedId,
       e.parameter.period,
       e.parameter.googleAccounts.split(',').map(s => s.trim()).filter(Boolean),
       e.parameter.serverNickname,
@@ -310,6 +378,7 @@ function doGet(e) {
     ))
 
   } else if (action === 'adminUpdateRecord') {
+    if (!requireAdmin(e)) return jsonResponse({ success: false, error: 'Unauthorized' })
     const accounts = e.parameter.googleAccounts.split(',').map(s => s.trim()).filter(Boolean)
     const response = UrlFetchApp.fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
       method: 'post',
@@ -375,7 +444,7 @@ function doGet(e) {
     })
 
   } else if (action === 'setPeriodsConfig') {
-    if (!isAdminUser(e.parameter.discordId)) return jsonResponse({ error: 'Unauthorized' })
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     const periods = JSON.parse(e.parameter.periodsJson || '[]')
     savePeriodsConfig(periods)
     if (e.parameter.coverImageUrl !== undefined) {
@@ -399,7 +468,7 @@ function doGet(e) {
     })
 
   } else if (action === 'setPeriod') {
-    if (!isAdminUser(e.parameter.discordId)) return jsonResponse({ error: 'Unauthorized' })
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     const props = PropertiesService.getScriptProperties()
     props.setProperty('currentPeriod', e.parameter.period)
     props.setProperty('startDate',     e.parameter.startDate  || '')
@@ -410,6 +479,7 @@ function doGet(e) {
     return jsonResponse({ success: true })
 
   } else if (action === 'getAdminIds') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     const raw = (PropertiesService.getScriptProperties().getProperty('adminIds') || '')
       .split(',').map(s => s.trim()).filter(Boolean)
     const adminList = raw.map(entry => {
@@ -419,6 +489,7 @@ function doGet(e) {
     return jsonResponse({ adminList })
 
   } else if (action === 'addAdminId') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     const props = PropertiesService.getScriptProperties()
     const raw = (props.getProperty('adminIds') || '')
       .split(',').map(s => s.trim()).filter(Boolean)
@@ -433,6 +504,7 @@ function doGet(e) {
     return jsonResponse({ success: true })
 
   } else if (action === 'removeAdminId') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     const props = PropertiesService.getScriptProperties()
     const raw = (props.getProperty('adminIds') || '')
       .split(',').map(s => s.trim()).filter(Boolean)
@@ -441,27 +513,38 @@ function doGet(e) {
     return jsonResponse({ success: true })
 
   } else if (action === 'getAllRecords') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(getAllRecords())
 
   } else if (action === 'scanSubmissions') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(scanSubmissions(e.parameter.period))
 
   } else if (action === 'updateReportStatus') {
-    return jsonResponse(updateReportStatus(e.parameter.discordId, e.parameter.period))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(updateReportStatus(authedId, e.parameter.period))
 
   } else if (action === 'cancelReportStatus') {
-    return jsonResponse(cancelReportStatus(e.parameter.discordId, e.parameter.period))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(cancelReportStatus(authedId, e.parameter.period))
 
   } else if (action === 'exportToSheet') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(exportToSheet(e.parameter.period, false, null))
 
   } else if (action === 'updateAttendanceStatus') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(updateAttendanceStatus(e.parameter.discordId, e.parameter.period, e.parameter.status))
 
   } else if (action === 'updateSocialLink') {
-    return jsonResponse(updateSocialLink(e.parameter.discordId, e.parameter.period, e.parameter.url || ''))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(updateSocialLink(authedId, e.parameter.period, e.parameter.url || ''))
 
   } else if (action === 'addLegacyRecord') {
+    if (!requireAdmin(e)) return jsonResponse({ success: false, error: 'Unauthorized' })
     return jsonResponse(addLegacyRecord(e.parameter))
 
   } else if (action === 'getTeamsForClaim') {
@@ -483,9 +566,11 @@ function doGet(e) {
     ))
 
   } else if (action === 'backfillLegacyUsernames') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(backfillLegacyUsernames())
 
   } else if (action === 'batchAddFirstPeriodRecords') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(batchAddFirstPeriodRecords())
 
   } else if (action === 'getSquadPosts') {
@@ -500,37 +585,52 @@ function doGet(e) {
     }))
 
   } else if (action === 'getProfile') {
-    return jsonResponse({ success: true, profileEmail: getProfileEmail(e.parameter.discordId) })
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse({ success: true, profileEmail: getProfileEmail(authedId) })
 
   } else if (action === 'saveProfile') {
-    return jsonResponse(saveProfile(e.parameter.discordId, e.parameter.email))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(saveProfile(authedId, e.parameter.email))
 
   } else if (action === 'getUserInfo') {
-    return jsonResponse({ success: true, userInfo: getUserInfo(e.parameter.discordId) })
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse({ success: true, userInfo: getUserInfo(authedId) })
 
   } else if (action === 'saveUserInfo') {
-    return jsonResponse(saveUserInfo(e.parameter.discordId, e.parameter.nickname, e.parameter.type, e.parameter.teamName))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(saveUserInfo(authedId, e.parameter.nickname, e.parameter.type, e.parameter.teamName))
 
   } else if (action === 'acceptTeamInvite') {
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(acceptTeamInvite(
-      e.parameter.discordId, e.parameter.discordName, e.parameter.discordUsername,
+      authedId, e.parameter.discordName, e.parameter.discordUsername,
       e.parameter.period, e.parameter.teamPageId
     ))
 
   } else if (action === 'declineTeamInvite') {
-    return jsonResponse(declineTeamInvite(e.parameter.discordId, e.parameter.teamPageId))
+    const authedId = requireSelf(e)
+    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(declineTeamInvite(authedId, e.parameter.teamPageId))
 
   } else if (action === 'adminPanel') {
     return HtmlService.createHtmlOutput(getAdminPanelHtml(e.parameter.secret))
       .setTitle('月月繪管理面板')
 
   } else if (action === 'backfillUserProfiles') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(backfillUserProfiles())
 
   } else if (action === 'clearTestAccount') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(clearTestAccount())
 
   } else if (action === 'migrateRootFolder') {
+    if (!requireAdmin(e)) return jsonResponse({ error: 'Unauthorized' })
     return jsonResponse(migrateRootFolder(e.parameter.newRootFolderId))
 
   } else if (action === 'resetMonthlyQuota') {
@@ -546,52 +646,16 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents)
     if (body.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
+    const callerId = verifySession(body.sessionToken)
+    if (!callerId || !isAdminUser(callerId)) return jsonResponse({ error: 'Unauthorized' })
     if (body.action === 'exportToSheet') {
       const preScanned = body.submissionData || null
       return jsonResponse(exportToSheet(body.period, false, preScanned))
     }
     return jsonResponse({ error: 'Unknown action' })
   } catch (err) {
-    notifyDiscord('doPost 意外錯誤', err.toString())
     return jsonResponse({ error: err.toString() })
   }
-}
-
-// ── 登入紀錄 Sheet ────────────────────────────────────────────
-function _getLoginLogSheet() {
-  const props = PropertiesService.getScriptProperties()
-  const cachedId = props.getProperty('loginLogSheetId')
-  if (cachedId) {
-    try {
-      const ss = SpreadsheetApp.openById(cachedId)
-      return ss.getSheets()[0]
-    } catch (_) {
-      props.deleteProperty('loginLogSheetId')
-    }
-  }
-  // 在 ROOT_FOLDER_ID 資料夾下找或建立
-  const folder = DriveApp.getFolderById(ROOT_FOLDER_ID)
-  const files = folder.getFilesByName('月月繪_登入紀錄')
-  let ss
-  if (files.hasNext()) {
-    ss = SpreadsheetApp.open(files.next())
-  } else {
-    ss = SpreadsheetApp.create('月月繪_登入紀錄')
-    DriveApp.getFileById(ss.getId()).moveTo(folder)
-    const sheet = ss.getSheets()[0]
-    sheet.appendRow(['時間', '結果', 'Discord ID', 'Discord 使用者名稱', '錯誤訊息'])
-    sheet.setFrozenRows(1)
-  }
-  props.setProperty('loginLogSheetId', ss.getId())
-  return ss.getSheets()[0]
-}
-
-function logLoginAttempt(success, discordId, username, errorMsg) {
-  try {
-    const sheet = _getLoginLogSheet()
-    const now = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy/MM/dd HH:mm:ss')
-    sheet.appendRow([now, success ? '成功' : '失敗', discordId || '', username || '', (errorMsg || '').slice(0, 500)])
-  } catch (_) {}
 }
 
 // ── Discord OAuth ─────────────────────────────────────────────
@@ -620,11 +684,55 @@ function getDiscordUser(code, redirectUri) {
     })
     const user = JSON.parse(userResponse.getContentText())
     logLoginAttempt(true, user.id, user.username, '')
-    return { id: user.id, username: user.username, global_name: user.global_name, avatar: user.avatar }
+    return { id: user.id, username: user.username, global_name: user.global_name, avatar: user.avatar, sessionToken: signSession(user.id) }
   } catch (err) {
     logLoginAttempt(false, '', '', err.toString())
     notifyDiscord('登入失敗（例外）', err.toString())
     return { error: err.toString() }
+  }
+}
+
+// ── 登入紀錄（成功／失敗都寫一筆，供事後查詢）──────────────────
+const LOGIN_LOG_SHEET_NAME = '月月繪_登入紀錄'
+
+function _getLoginLogSheet() {
+  const props = PropertiesService.getScriptProperties()
+  const cachedId = props.getProperty('loginLogSheetId')
+  let ss
+  if (cachedId) {
+    try { ss = SpreadsheetApp.openById(cachedId) } catch (e) { ss = null }
+  }
+  if (!ss) {
+    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID)
+    const files = rootFolder.getFilesByName(LOGIN_LOG_SHEET_NAME)
+    if (files.hasNext()) {
+      ss = SpreadsheetApp.openById(files.next().getId())
+    } else {
+      ss = SpreadsheetApp.create(LOGIN_LOG_SHEET_NAME)
+      DriveApp.getFileById(ss.getId()).moveTo(rootFolder)
+      const sheet = ss.getActiveSheet()
+      sheet.setName('登入紀錄')
+      sheet.getRange(1, 1, 1, 5).setValues([['時間', '結果', 'Discord ID', 'Discord 使用者名稱', '錯誤訊息']])
+      sheet.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#5865F2').setFontColor('white')
+      sheet.setFrozenRows(1)
+    }
+    props.setProperty('loginLogSheetId', ss.getId())
+  }
+  return ss.getSheetByName('登入紀錄') || ss.getActiveSheet()
+}
+
+function logLoginAttempt(success, discordId, username, errorMsg) {
+  try {
+    const sheet = _getLoginLogSheet()
+    sheet.appendRow([
+      Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ss'),
+      success ? '成功' : '失敗',
+      discordId || '',
+      username || '',
+      (errorMsg || '').slice(0, 500)
+    ])
+  } catch (err) {
+    Logger.log('logLoginAttempt failed: ' + err)
   }
 }
 

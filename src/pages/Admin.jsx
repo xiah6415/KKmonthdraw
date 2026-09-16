@@ -91,14 +91,14 @@ function Admin() {
       return
     }
     setDiscordUser(user)
-    fetchInitData()
+    fetchInitData(user)
   }, [])
 
-  const fetchInitData = async () => {
+  const fetchInitData = async (user) => {
     try {
       const [periodsRes, adminRes] = await Promise.all([
         axios.get(API_URL, { params: { action: 'getPeriodsConfig', secret: SECRET } }),
-        axios.get(API_URL, { params: { action: 'getAdminIds', secret: SECRET } })
+        axios.get(API_URL, { params: { action: 'getAdminIds', sessionToken: user?.sessionToken, secret: SECRET } })
       ])
 
       let allPeriods = periodsRes.data.periods || []
@@ -154,7 +154,7 @@ function Admin() {
         updated = periods.map(p => p.name === selectedPeriodName ? { ...editPeriod } : p)
       }
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
@@ -178,7 +178,7 @@ function Admin() {
     try {
       const updated = periods.filter(p => p.name !== selectedPeriodName)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
@@ -203,7 +203,7 @@ function Admin() {
     ;[updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]]
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) setPeriods(updated)
     } catch { /* silent */ }
@@ -244,11 +244,11 @@ function Admin() {
       const freshPeriods = freshRes.data.periods?.length ? freshRes.data.periods : periods
       // 新 GAS 用 setPeriodsConfig，舊 GAS fallback 到 setPeriod
       let res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(freshPeriods), coverImageUrl: url, discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (!res.data.success) {
         res = await axios.get(API_URL, {
-          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, discordId: discordUser?.id, secret: SECRET }
+          params: { action: 'setPeriod', period: currentPeriod, coverImageUrl: url, discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
         })
       }
       if (res.data.success) {
@@ -279,7 +279,7 @@ function Admin() {
       const newPeriod = { ...editPeriod, [field]: url }
       const updated = periods.map(p => p.name === selectedPeriodName ? newPeriod : p)
       const res = await axios.get(API_URL, {
-        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, secret: SECRET }
+        params: { action: 'setPeriodsConfig', periodsJson: JSON.stringify(updated), discordId: discordUser?.id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setPeriods(updated)
@@ -308,7 +308,7 @@ function Admin() {
     setAdminMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'addAdminId', discordId: id, adminName: name, secret: SECRET }
+        params: { action: 'addAdminId', discordId: id, adminName: name, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setAdminList([...adminList, { id, name }])
@@ -331,7 +331,7 @@ function Admin() {
     setAdminMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'removeAdminId', discordId: id, secret: SECRET }
+        params: { action: 'removeAdminId', discordId: id, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setAdminList(adminList.filter(a => a.id !== id))
@@ -351,7 +351,7 @@ function Admin() {
     setLoadingRecords(true)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'getAllRecords', secret: SECRET }
+        params: { action: 'getAllRecords', sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) setAllRecords(res.data.records)
     } catch (err) {
@@ -460,6 +460,7 @@ function Admin() {
         params: {
           action: 'adminUpdateRecord',
           discordId: rec.discordId,
+          sessionToken: discordUser?.sessionToken,
           period: rec.period,
           serverNickname: editDraft.serverNickname.trim(),
           teamName: editDraft.teamName.trim(),
@@ -498,6 +499,7 @@ function Admin() {
         action: 'exportToSheet',
         period: exportPeriod,
         secret: SECRET,
+        sessionToken: discordUser?.sessionToken,
         ...(preScanned && { submissionData: preScanned })
       }), { headers: { 'Content-Type': 'text/plain' } })
       if (res.data.success) {
@@ -519,7 +521,7 @@ function Admin() {
     setScanError(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'scanSubmissions', period: filterPeriod, secret: SECRET }
+        params: { action: 'scanSubmissions', period: filterPeriod, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         const map = {}
@@ -541,7 +543,7 @@ function Admin() {
     setAttendanceUpdating(key)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'updateAttendanceStatus', discordId: rec.discordId, period: rec.period, status, secret: SECRET }
+        params: { action: 'updateAttendanceStatus', discordId: rec.discordId, period: rec.period, status, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setAllRecords(prev => prev.map(r =>
@@ -597,6 +599,7 @@ function Admin() {
           period: legacyForm.period.trim(),
           fullAttendance: legacyForm.fullAttendance.toString(),
           discordId: legacyForm.discordId.trim(),
+          sessionToken: discordUser?.sessionToken,
           secret: SECRET
         }
       })

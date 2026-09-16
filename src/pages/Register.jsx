@@ -57,10 +57,10 @@ function Register() {
     try {
       await Promise.all([
         axios.get(API_URL, {
-          params: { action: 'saveUserInfo', discordId: discordUser.id, nickname: serverNickname.trim(), secret: SECRET }
+          params: { action: 'saveUserInfo', discordId: discordUser.id, sessionToken: discordUser.sessionToken, nickname: serverNickname.trim(), secret: SECRET }
         }),
         axios.get(API_URL, {
-          params: { action: 'saveProfile', discordId: discordUser.id, email: email.trim().toLowerCase(), secret: SECRET }
+          params: { action: 'saveProfile', discordId: discordUser.id, sessionToken: discordUser.sessionToken, email: email.trim().toLowerCase(), secret: SECRET }
         })
       ])
       navigate('/dashboard')
