@@ -106,10 +106,18 @@ function Dashboard() {
             params: {
               action: 'getUserRecords',
               discordId: storedUser.id,
+              sessionToken: storedUser.sessionToken,
               discordUsername: storedUser.username,
               secret: SECRET
             }
           })
+          if (res.data.error === 'Unauthorized') {
+            localStorage.removeItem('discordUser')
+            const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID
+            const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI)
+            window.location.href = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify`
+            return
+          }
           if (!res.data.success) {
             setError('查詢紀錄失敗：' + JSON.stringify(res.data))
             return
