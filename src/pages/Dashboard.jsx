@@ -241,6 +241,7 @@ function Dashboard() {
         period: record.period,
         googleAccounts: filtered.join(','),
         serverNickname: editNickname.trim(),
+        sessionToken: discordUser.sessionToken,
         secret: SECRET
       }
       if (isLeader && record.type === '團體') params.teamName = editTeamName.trim()
@@ -274,6 +275,7 @@ function Dashboard() {
           action: 'updateReportStatus',
           discordId: discordUser.id,
           period: record.period,
+          sessionToken: discordUser.sessionToken,
           secret: SECRET
         }
       })
@@ -375,7 +377,7 @@ function Dashboard() {
     setSocialLinkMsg(prev => ({ ...prev, [period]: null }))
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'updateSocialLink', discordId: discordUser.id, period, url, secret: SECRET }
+        params: { action: 'updateSocialLink', discordId: discordUser.id, period, url, sessionToken: discordUser.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setRecords(prev => prev.map(r => r.period === period ? { ...r, socialLink: url } : r))
@@ -399,6 +401,7 @@ function Dashboard() {
           action: 'cancelReportStatus',
           discordId: discordUser.id,
           period: record.period,
+          sessionToken: discordUser.sessionToken,
           secret: SECRET
         }
       })
@@ -427,7 +430,7 @@ function Dashboard() {
     setProfileEmailMsg(null)
     try {
       const res = await axios.get(API_URL, {
-        params: { action: 'saveProfile', discordId: discordUser.id, email, secret: SECRET }
+        params: { action: 'saveProfile', discordId: discordUser.id, email, sessionToken: discordUser.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
         setProfileEmail(email)
@@ -563,6 +566,7 @@ function Dashboard() {
           discordUsername: discordUser.username || '',
           period: record.period,
           teamPageId: record.notionPageId,
+          sessionToken: discordUser.sessionToken,
           secret: SECRET
         }
       })
@@ -581,7 +585,7 @@ function Dashboard() {
     setInviteProcessing(record.notionPageId)
     try {
       await axios.get(API_URL, {
-        params: { action: 'declineTeamInvite', discordId: discordUser.id, teamPageId: record.notionPageId, secret: SECRET }
+        params: { action: 'declineTeamInvite', discordId: discordUser.id, teamPageId: record.notionPageId, sessionToken: discordUser.sessionToken, secret: SECRET }
       })
       setRecords(prev => prev.filter(r => r.notionPageId !== record.notionPageId))
     } catch { /* silent */ }
