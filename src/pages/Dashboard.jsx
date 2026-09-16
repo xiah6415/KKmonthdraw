@@ -584,6 +584,10 @@ function Dashboard() {
   if (error) return (
     <div className="container" style={{ textAlign: 'center' }}>
       <p style={{ color: 'red' }}>{error}</p>
+      <p style={{ color: '#999', fontSize: 14, marginTop: 8 }}>如果問題持續，請重新整理頁面或重新登入。</p>
+      <button onClick={() => window.location.href = '/'} style={{ marginTop: 12, padding: '8px 20px', cursor: 'pointer' }}>
+        重新登入
+      </button>
     </div>
   )
 
