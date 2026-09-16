@@ -1,8 +1,10 @@
 // ================================================================
 // 月月繪 Google Apps Script
-// 最後更新：2026-09-02
-// 版本：v40
+// 最後更新：2026-09-16
+// 版本：v42
 // 變更：
+//   - v42：補回登入紀錄（_getLoginLogSheet / logLoginAttempt）；登入失敗時同步送 webhook 通知；loginLogSheetId 快取修正避免寫入錯誤表單
+//   - v41：新增 Discord 錯誤通知（notifyDiscord）；配額 blocked / createFolder 失敗 / doPost 意外例外時送 webhook 通知
 //   - v40：getUserRecords 改用 fetchAll 平行查詢（batch1: discordId+legacy同時送；batch3: 多 username 同時送），大幅縮短載入時間
 //   - v39：配額計數只算 WRITE_ACTIONS（純讀取不計入），避免瀏覽流量誤觸鎖死；SOFT/HARD 上限由 70%/90% 放寬為 90%/100%
 //   - autoSyncSheet 不再掃描 Drive/Docs，避免觸發器逾時（v15）
@@ -38,6 +40,7 @@ const ROOT_FOLDER_ID = '1CKtRyVxDqiP7ebaw0obPW2yX9A5LObZy'
 const NOTION_TOKEN = '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'
 const NOTION_DATABASE_ID = '34a63b0885958042ad79d27f8abe63e4'
 const API_SECRET = '月月繪2026secret_KK'
+const ERROR_WEBHOOK = 'https://discord.com/api/webhooks/1549652789008007209/oKGx_VzBotB013Ru7avY7ZvwcmtJj-AcRbcu0V9ar_veaoRq974b4u0VyQ7k4Ti86lC_'
 
 // ── 每月配額保護 ─────────────────────────────────────────────
 // 每月上限 3000 次「寫入」呼叫（正常活動用量約數百次，足夠抵禦攻擊）
@@ -51,6 +54,26 @@ const WRITE_ACTIONS = new Set([
   'setPeriod', 'addAdminId', 'removeAdminId', 'exportToSheet',
   'createSquadPost', 'saveProfile', 'saveUserInfo', 'acceptTeamInvite', 'declineTeamInvite'
 ])
+
+// ── Discord 錯誤通知 ──────────────────────────────────────────
+function notifyDiscord(title, detail) {
+  try {
+    const now = Utilities.formatDate(new Date(), 'Asia/Taipei', 'MM/dd HH:mm')
+    UrlFetchApp.fetch(ERROR_WEBHOOK, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({
+        embeds: [{
+          title: '⚠️ ' + title,
+          description: detail ? '```' + String(detail).slice(0, 1000) + '```' : '',
+          color: 0xe74c3c,
+          footer: { text: now + ' · 月月繪 GAS' }
+        }]
+      }),
+      muteHttpExceptions: true
+    })
+  } catch (_) {}
+}
 
 // ── 設定資料夾管理者權限（Drive API v3）─────────────────────
 function setFolderOrganizer(folderId, email) {
@@ -200,15 +223,6 @@ function getActivePeriodInfo() {
 
 // ── 路由 ─────────────────────────────────────────────────────
 function doGet(e) {
-  // 一次性 bootstrap：設定 secrets（完成後刪除此段）
-  if (e.parameter.action === '_bootstrap' && e.parameter.token === 'kkmonth-bootstrap-2026') {
-    const props = PropertiesService.getScriptProperties()
-    props.setProperty('DISCORD_CLIENT_SECRET', 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC')
-    props.setProperty('NOTION_TOKEN', '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')
-    props.setProperty('API_SECRET', '月月繪2026secret_KK')
-    return jsonResponse({ ok: true, msg: 'secrets set' })
-  }
-
   if (e.parameter.secret !== API_SECRET) {
     return jsonResponse({ error: 'Unauthorized' })
   }
@@ -219,6 +233,7 @@ function doGet(e) {
   if (action !== 'resetMonthlyQuota') {
     const quota = getMonthlyQuotaStatus(action)
     if (quota === 'blocked') {
+      notifyDiscord('配額已滿，服務停止', '本月寫入次數已達上限，所有操作已暫停。請用 resetMonthlyQuota 解除。')
       return jsonResponse({ error: '本月服務已暫停以避免超額費用，下月自動恢復' })
     }
     if (quota === 'throttled' && WRITE_ACTIONS.has(action)) {
@@ -537,8 +552,46 @@ function doPost(e) {
     }
     return jsonResponse({ error: 'Unknown action' })
   } catch (err) {
+    notifyDiscord('doPost 意外錯誤', err.toString())
     return jsonResponse({ error: err.toString() })
   }
+}
+
+// ── 登入紀錄 Sheet ────────────────────────────────────────────
+function _getLoginLogSheet() {
+  const props = PropertiesService.getScriptProperties()
+  const cachedId = props.getProperty('loginLogSheetId')
+  if (cachedId) {
+    try {
+      const ss = SpreadsheetApp.openById(cachedId)
+      return ss.getSheets()[0]
+    } catch (_) {
+      props.deleteProperty('loginLogSheetId')
+    }
+  }
+  // 在 ROOT_FOLDER_ID 資料夾下找或建立
+  const folder = DriveApp.getFolderById(ROOT_FOLDER_ID)
+  const files = folder.getFilesByName('月月繪_登入紀錄')
+  let ss
+  if (files.hasNext()) {
+    ss = SpreadsheetApp.open(files.next())
+  } else {
+    ss = SpreadsheetApp.create('月月繪_登入紀錄')
+    DriveApp.getFileById(ss.getId()).moveTo(folder)
+    const sheet = ss.getSheets()[0]
+    sheet.appendRow(['時間', '結果', 'Discord ID', 'Discord 使用者名稱', '錯誤訊息'])
+    sheet.setFrozenRows(1)
+  }
+  props.setProperty('loginLogSheetId', ss.getId())
+  return ss.getSheets()[0]
+}
+
+function logLoginAttempt(success, discordId, username, errorMsg) {
+  try {
+    const sheet = _getLoginLogSheet()
+    const now = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy/MM/dd HH:mm:ss')
+    sheet.appendRow([now, success ? '成功' : '失敗', discordId || '', username || '', (errorMsg || '').slice(0, 500)])
+  } catch (_) {}
 }
 
 // ── Discord OAuth ─────────────────────────────────────────────
@@ -555,13 +608,22 @@ function getDiscordUser(code, redirectUri) {
       }
     })
     const tokenData = JSON.parse(tokenResponse.getContentText())
+    if (tokenData.error) {
+      const msg = tokenData.error + (tokenData.error_description ? ': ' + tokenData.error_description : '')
+      logLoginAttempt(false, '', '', msg)
+      notifyDiscord('登入失敗', msg)
+      return { error: msg }
+    }
     const accessToken = tokenData.access_token
     const userResponse = UrlFetchApp.fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${accessToken}` }
     })
     const user = JSON.parse(userResponse.getContentText())
+    logLoginAttempt(true, user.id, user.username, '')
     return { id: user.id, username: user.username, global_name: user.global_name, avatar: user.avatar }
   } catch (err) {
+    logLoginAttempt(false, '', '', err.toString())
+    notifyDiscord('登入失敗（例外）', err.toString())
     return { error: err.toString() }
   }
 }
@@ -613,6 +675,7 @@ function createFolder(data) {
     })
     return { success: true, folderUrl: mainFolder.getUrl(), folderName: folderName, currentPeriod: period }
   } catch (err) {
+    notifyDiscord('建檔失敗', `使用者：${data.discordName}（${data.discordId}）\n期數：${data.targetPeriod}\n錯誤：${err.toString()}`)
     return { error: err.toString() }
   }
 }
