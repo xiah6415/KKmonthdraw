@@ -1,8 +1,10 @@
 // ================================================================
 // 月月繪 Google Apps Script
 // 最後更新：2026-09-16
-// 版本：v43
+// 版本：v44
 // 變更：
+//   - v44：createFolder 補傳 sessionToken（前端修復），補齊所有失敗路徑的 webhook 通知，Unauthorized 自動導向重新登入
+//   - v43 舊變更：
 //   - v41【安全修復】外部回報：任何人只要知道別人的 discordId + 前端 API_SECRET（該值會被打包進公開 JS，不算真的機密）
 //     就能呼叫 getUserRecords 等端點冒充查詢/竄改他人資料；getAllRecords / addAdminId 等管理端點更是完全沒有身分檢查。
 //     修法：登入時（getDiscordUser/initDashboard）簽發伺服器端 HMAC session token，
@@ -354,7 +356,10 @@ function doGet(e) {
 
   } else if (action === 'createFolder') {
     const authedId = requireSelf(e)
-    if (!authedId) return jsonResponse({ error: 'Unauthorized' })
+    if (!authedId) {
+      notifyDiscord('建檔失敗：Session 過期', `discordId：${e.parameter.discordId || '未知'}\n名稱：${e.parameter.discordName || '未知'}\n請對方重新登入`)
+      return jsonResponse({ error: 'Unauthorized' })
+    }
     return jsonResponse(createFolder({
       type: e.parameter.type,
       teamName: e.parameter.teamName,
@@ -741,16 +746,24 @@ function createFolder(data) {
   try {
     // 驗證 discordId 為合法的 Discord Snowflake（17-20 位數字），防止假 ID 灌水
     if (!/^\d{17,20}$/.test(data.discordId || '')) {
+      notifyDiscord('建檔失敗：無效 Discord ID', `ID：${data.discordId}\n使用者：${data.discordName}`)
       return { success: false, error: '無效的 Discord ID' }
     }
     // 全域速率限制：每小時最多 30 次建檔請求，防止自動化腳本刷 Drive 資料夾
     if (!checkGlobalRateLimit('createFolder', 30)) {
+      notifyDiscord('建檔速率限制觸發', `使用者：${data.discordName}（${data.discordId}）`)
       return { success: false, error: '目前建檔請求過多，請稍後再試' }
     }
     const allPeriods = getPeriodsConfig()
-    if (!data.targetPeriod) return { success: false, error: '請指定期數' }
+    if (!data.targetPeriod) {
+      notifyDiscord('建檔失敗：未指定期數', `使用者：${data.discordName}（${data.discordId}）`)
+      return { success: false, error: '請指定期數' }
+    }
     const targetConfig = allPeriods.find(p => p.name === data.targetPeriod)
-    if (!targetConfig || !targetConfig.open) return { success: false, error: '指定期數未開放建檔' }
+    if (!targetConfig || !targetConfig.open) {
+      notifyDiscord('建檔失敗：期數未開放', `使用者：${data.discordName}（${data.discordId}）\n期數：${data.targetPeriod}\n開放狀態：${targetConfig ? targetConfig.open : '找不到設定'}`)
+      return { success: false, error: '指定期數未開放建檔' }
+    }
     const period = data.targetPeriod
     const rootFolderId = targetConfig.rootFolderId || ROOT_FOLDER_ID
 
