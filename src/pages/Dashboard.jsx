@@ -325,7 +325,7 @@ function Dashboard() {
               .then(res => {
                 const suggestions = (res.data.matches || []).filter(m =>
                   !m.discordId?.startsWith('legacy_') &&
-                  !records.some(r => r.period === m.period)
+                  !records.some(r => r.period === m.period && !r.linkedViaEmail)
                 )
                 setEmailClaimSuggestions(suggestions)
               })
@@ -502,7 +502,7 @@ function Dashboard() {
       const legacy = matches.filter(m => m.discordId?.startsWith('legacy_'))
       const invites = matches.filter(m =>
         !m.discordId?.startsWith('legacy_') &&
-        !records.some(r => r.period === m.period)
+        !records.some(r => r.period === m.period && !r.linkedViaEmail)
       )
       if (legacy.length > 0 || invites.length > 0) {
         setClaimMatches(legacy)
