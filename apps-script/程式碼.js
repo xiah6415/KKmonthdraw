@@ -1951,9 +1951,12 @@ function findTeamsByEmail(emails, excludePeriod) {
       payload: JSON.stringify({ filter })
     })
     const matches = (JSON.parse(res.getContentText()).results || []).map(page => ({
-      period:     page.properties['期數'].rich_text[0]?.text.content || '',
-      teamName:   page.properties['隊伍名稱'].rich_text[0]?.text.content || '',
-      reportStatus: page.properties['回報狀態']?.rich_text[0]?.text.content || ''
+      period:       page.properties['期數'].rich_text[0]?.text.content || '',
+      teamName:     page.properties['隊伍名稱'].rich_text[0]?.text.content || '',
+      reportStatus: page.properties['回報狀態']?.rich_text[0]?.text.content || '',
+      notionPageId: page.id,
+      discordId:    page.properties['Discord_ID'].title[0]?.text.content || '',
+      folderUrl:    page.properties['資料夾連結']?.url || ''
     })).filter(m => m.period && m.teamName)
     return { success: true, matches }
   } catch (err) {

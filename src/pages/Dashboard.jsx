@@ -65,8 +65,10 @@ function Dashboard() {
   const [buildSubmitting, setBuildSubmitting] = useState(false)
   const [buildError, setBuildError] = useState(null)
   // claim modal (for inline 建檔)
-  const [claimMatches, setClaimMatches] = useState([])
+  const [claimMatches, setClaimMatches] = useState([])      // legacy 認領
   const [claimChecked, setClaimChecked] = useState({})
+  const [inviteMatches, setInviteMatches] = useState([])   // 往期隊伍邀請
+  const [inviteChecked, setInviteChecked] = useState({})
   const [showClaimModal, setShowClaimModal] = useState(false)
   // 隊伍邀請處理
   const [inviteProcessing, setInviteProcessing] = useState(null) // notionPageId
@@ -470,9 +472,16 @@ function Dashboard() {
         params: { action: 'findTeamsByEmail', emails: emails.join(','), excludePeriod: buildingPeriod, secret: SECRET }
       })
       const matches = checkRes.data.matches || []
-      if (matches.length > 0) {
-        setClaimMatches(matches)
-        setClaimChecked(Object.fromEntries(matches.map((_, i) => [i, true])))
+      const legacy = matches.filter(m => m.discordId?.startsWith('legacy_'))
+      const invites = matches.filter(m =>
+        !m.discordId?.startsWith('legacy_') &&
+        !records.some(r => r.period === m.period)
+      )
+      if (legacy.length > 0 || invites.length > 0) {
+        setClaimMatches(legacy)
+        setClaimChecked(Object.fromEntries(legacy.map((_, i) => [i, true])))
+        setInviteMatches(invites)
+        setInviteChecked(Object.fromEntries(invites.map((_, i) => [i, true])))
         setShowClaimModal(true)
         setBuildSubmitting(false)
         return
@@ -481,7 +490,7 @@ function Dashboard() {
     await doCreateFolder([])
   }
 
-  const doCreateFolder = async (confirmedMatches) => {
+  const doCreateFolder = async (confirmedMatches, confirmedInvites = []) => {
     setShowClaimModal(false)
     setBuildSubmitting(true)
     try {
@@ -518,6 +527,22 @@ function Dashboard() {
                 period: match.period,
                 teamName: match.teamName,
                 attendanceStatus: match.reportStatus,
+                secret: SECRET
+              }
+            })
+          } catch { /* ignore */ }
+        }
+        for (const invite of confirmedInvites) {
+          try {
+            await axios.get(API_URL, {
+              params: {
+                action: 'acceptTeamInvite',
+                discordId: discordUser.id,
+                discordName: discordUser.global_name || discordUser.username || discordUser.id,
+                discordUsername: discordUser.username || '',
+                period: invite.period,
+                teamPageId: invite.notionPageId,
+                sessionToken: discordUser.sessionToken,
                 secret: SECRET
               }
             })
@@ -1047,25 +1072,49 @@ function Dashboard() {
         })
       })()}
 
-      {/* Claim modal（舊期隊伍紀錄認領）*/}
+      {/* Claim modal（舊期紀錄認領 + 往期隊伍邀請）*/}
       {showClaimModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 380 }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 17 }}>找到舊期紀錄</h3>
-            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#555' }}>你的 Google 帳號在以下期數有參加記錄，是否一併認領至你的帳號？</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {claimMatches.map((match, i) => (
-                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={claimChecked[i] ?? true} onChange={e => setClaimChecked(prev => ({ ...prev, [i]: e.target.checked }))} style={{ width: 16, height: 16 }} />
-                  <span>{match.period}「<strong>{match.teamName}</strong>」</span>
-                </label>
-              ))}
-            </div>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 17 }}>發現往期紀錄</h3>
+            <p style={{ margin: '0 0 18px', fontSize: 13, color: '#777' }}>以下資料與你的 Google 帳號相符，勾選後送出建檔時一併處理。</p>
+
+            {inviteMatches.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#3b4fd8' }}>🤝 你曾被加入的隊伍</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {inviteMatches.map((m, i) => (
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer', background: '#f0f4ff', borderRadius: 8, padding: '8px 12px' }}>
+                      <input type="checkbox" checked={inviteChecked[i] ?? true} onChange={e => setInviteChecked(prev => ({ ...prev, [i]: e.target.checked }))} style={{ width: 16, height: 16, flexShrink: 0 }} />
+                      <span>{m.period}・隊伍「<strong>{m.teamName}</strong>」</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {claimMatches.length > 0 && (
+              <div style={{ marginBottom: 18 }}>
+                <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#555' }}>📋 舊期紀錄認領</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {claimMatches.map((match, i) => (
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer', background: '#f5f5f5', borderRadius: 8, padding: '8px 12px' }}>
+                      <input type="checkbox" checked={claimChecked[i] ?? true} onChange={e => setClaimChecked(prev => ({ ...prev, [i]: e.target.checked }))} style={{ width: 16, height: 16, flexShrink: 0 }} />
+                      <span>{match.period}・隊伍「<strong>{match.teamName}</strong>」</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={{ flex: 1, background: '#5865F2', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
-                onClick={() => doCreateFolder(claimMatches.filter((_, i) => claimChecked[i]))}>確認</button>
+                onClick={() => doCreateFolder(
+                  claimMatches.filter((_, i) => claimChecked[i]),
+                  inviteMatches.filter((_, i) => inviteChecked[i])
+                )}>確認</button>
               <button style={{ flex: 1, background: '#eee', color: '#555', border: 'none', borderRadius: 8, padding: '10px 0', fontSize: 14, cursor: 'pointer' }}
-                onClick={() => doCreateFolder([])}>略過</button>
+                onClick={() => doCreateFolder([], [])}>略過</button>
             </div>
           </div>
         </div>
