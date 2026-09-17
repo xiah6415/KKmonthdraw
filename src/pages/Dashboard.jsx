@@ -47,6 +47,8 @@ function Dashboard() {
   const [claimDataLoading, setClaimDataLoading] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimMsg, setClaimMsg] = useState(null)
+  const [emailClaimSuggestions, setEmailClaimSuggestions] = useState([]) // 信箱比對到的往期隊伍邀請
+  const [claimSuggestProcessing, setClaimSuggestProcessing] = useState(null) // notionPageId
   const [claimDropdownOpen, setClaimDropdownOpen] = useState(false)
   // 個人信箱 profile
   const [profileEmail, setProfileEmail] = useState('')
@@ -300,14 +302,39 @@ function Dashboard() {
     const next = !claimOpen
     setClaimOpen(next)
     setClaimMsg(null)
-    if (next && claimPeriods.length === 0) {
-      setClaimDataLoading(true)
-      try {
-        const res = await axios.get(API_URL, { params: { action: 'getTeamsForClaim', secret: SECRET } })
-        if (res.data.success) setClaimPeriods(res.data.periods || [])
-      } catch {}
-      finally { setClaimDataLoading(false) }
-    }
+    if (!next) return
+    // 同時載入期數清單 + 信箱比對建議
+    setClaimDataLoading(true)
+    try {
+      const promises = []
+      if (claimPeriods.length === 0) {
+        promises.push(
+          axios.get(API_URL, { params: { action: 'getTeamsForClaim', secret: SECRET } })
+            .then(res => { if (res.data.success) setClaimPeriods(res.data.periods || []) })
+            .catch(() => {})
+        )
+      }
+      if (emailClaimSuggestions.length === 0) {
+        const knownEmails = [...new Set([
+          profileEmail,
+          ...records.flatMap(r => r.googleAccounts || [])
+        ].filter(Boolean))]
+        if (knownEmails.length > 0) {
+          promises.push(
+            axios.get(API_URL, { params: { action: 'findTeamsByEmail', emails: knownEmails.join(','), secret: SECRET } })
+              .then(res => {
+                const suggestions = (res.data.matches || []).filter(m =>
+                  !m.discordId?.startsWith('legacy_') &&
+                  !records.some(r => r.period === m.period)
+                )
+                setEmailClaimSuggestions(suggestions)
+              })
+              .catch(() => {})
+          )
+        }
+      }
+      await Promise.all(promises)
+    } finally { setClaimDataLoading(false) }
   }
 
   const handleClaimPeriodChange = async (period) => {
@@ -615,6 +642,49 @@ function Dashboard() {
       setRecords(prev => prev.filter(r => r.notionPageId !== record.notionPageId))
     } catch { /* silent */ }
     finally { setInviteProcessing(null) }
+  }
+
+  const handleAcceptEmailSuggestion = async (suggestion) => {
+    setClaimSuggestProcessing(suggestion.notionPageId)
+    try {
+      const res = await axios.get(API_URL, {
+        params: {
+          action: 'acceptTeamInvite',
+          discordId: discordUser.id,
+          discordName: discordUser.global_name || discordUser.username || discordUser.id,
+          discordUsername: discordUser.username || '',
+          period: suggestion.period,
+          teamPageId: suggestion.notionPageId,
+          sessionToken: discordUser.sessionToken,
+          secret: SECRET
+        }
+      })
+      if (res.data.success) {
+        setEmailClaimSuggestions(prev => prev.filter(s => s.notionPageId !== suggestion.notionPageId))
+        setRecords(prev => [...prev, {
+          linkedViaEmail: false,
+          notionPageId: suggestion.notionPageId,
+          period: suggestion.period,
+          teamName: suggestion.teamName,
+          type: '團體',
+          folderUrl: suggestion.folderUrl || '',
+          discordId: discordUser.id,
+          isLegacy: false,
+          googleAccounts: [],
+          reportStatus: '',
+          attendanceStatus: '',
+          reportTime: '',
+          socialLink: '',
+          createdTime: new Date().toISOString(),
+          username: discordUser.username || '',
+          serverNickname: ''
+        }])
+        setClaimMsg({ type: 'success', text: `已加入${suggestion.period}・${suggestion.teamName}` })
+      } else {
+        setClaimMsg({ type: 'error', text: res.data.error || '加入失敗' })
+      }
+    } catch { setClaimMsg({ type: 'error', text: '加入失敗，請再試一次' }) }
+    finally { setClaimSuggestProcessing(null) }
   }
 
   // ── Loading ───────────────────────────────────────────
@@ -1284,9 +1354,25 @@ function Dashboard() {
         </button>
         {claimOpen && (
           <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {claimDataLoading && !claimPeriod ? (
+            {claimDataLoading && emailClaimSuggestions.length === 0 && !claimPeriod ? (
               <p style={{ margin: 0, fontSize: 13, color: '#aaa' }}>載入中...</p>
-            ) : (
+            ) : null}
+            {emailClaimSuggestions.length > 0 && (
+              <div style={{ background: '#f0f4ff', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 12, color: '#3b4fd8', fontWeight: 600 }}>🔍 根據你的信箱找到以下往期隊伍</p>
+                {emailClaimSuggestions.map(s => (
+                  <div key={s.notionPageId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 13 }}>
+                    <span style={{ color: '#333' }}>{s.period}・<strong>{s.teamName}</strong></span>
+                    <button
+                      onClick={() => handleAcceptEmailSuggestion(s)}
+                      disabled={claimSuggestProcessing === s.notionPageId}
+                      style={{ fontSize: 12, padding: '4px 12px', background: '#5865F2', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    >{claimSuggestProcessing === s.notionPageId ? '加入中...' : '加入'}</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(!claimDataLoading || claimPeriod) && (
               <select
                 value={claimPeriod}
                 onChange={e => handleClaimPeriodChange(e.target.value)}
