@@ -1,7 +1,7 @@
 // ================================================================
 // 月月繪 Google Apps Script
 // 最後更新：2026-09-16
-// 版本：v44
+// 版本：v45
 // 變更：
 //   - v44：createFolder 補傳 sessionToken（前端修復），補齊所有失敗路徑的 webhook 通知，Unauthorized 自動導向重新登入
 //   - v43 舊變更：
@@ -1337,9 +1337,40 @@ function updateAttendanceStatus(discordId, period, status) {
       payload: JSON.stringify({ properties: { '全勤': { rich_text: [{ text: { content: status } }] } } })
     })
 
-    // 若為團體，連動所有信箱對應的成員紀錄
+    // 若為團體，連動所有隊員紀錄（雙重查詢：隊伍名稱 + email）
     const type = page.properties['類型']?.rich_text[0]?.text.content || ''
+    const teamName = page.properties['隊伍名稱']?.rich_text[0]?.text.content || ''
     if (type === '團體') {
+      const updatedIds = new Set([discordId])
+
+      // 1. 用隊伍名稱查同期所有隊員（acceptTeamInvite 建的紀錄走這條）
+      if (teamName) {
+        try {
+          const tRes = UrlFetchApp.fetch(`https://api.notion.com/v1/databases/${NOTION_DATABASE_ID}/query`, {
+            method: 'post', headers,
+            payload: JSON.stringify({
+              filter: { and: [
+                { property: '隊伍名稱', rich_text: { equals: teamName } },
+                { property: '期數', rich_text: { equals: period } },
+                { property: 'Discord_ID', title: { does_not_equal: discordId } }
+              ]}
+            })
+          })
+          const tPages = JSON.parse(tRes.getContentText()).results || []
+          for (const tp of tPages) {
+            const tid = tp.properties['Discord_ID']?.title[0]?.text.content || ''
+            if (!updatedIds.has(tid)) {
+              UrlFetchApp.fetch(`https://api.notion.com/v1/pages/${tp.id}`, {
+                method: 'patch', headers,
+                payload: JSON.stringify({ properties: { '全勤': { rich_text: [{ text: { content: status } }] } } })
+              })
+              updatedIds.add(tid)
+            }
+          }
+        } catch (e) { Logger.log('propagate by teamName error: ' + e) }
+      }
+
+      // 2. 用 google帳號 信箱比對（legacy 或信箱不一致時的補充）
       const emailsRaw = page.properties['google帳號']?.rich_text[0]?.text.content || ''
       const emails = emailsRaw.split(',').map(s => s.trim()).filter(Boolean)
       for (const email of emails) {
@@ -1356,12 +1387,16 @@ function updateAttendanceStatus(discordId, period, status) {
           })
           const mPages = JSON.parse(mRes.getContentText()).results || []
           for (const mp of mPages) {
-            UrlFetchApp.fetch(`https://api.notion.com/v1/pages/${mp.id}`, {
-              method: 'patch', headers,
-              payload: JSON.stringify({ properties: { '全勤': { rich_text: [{ text: { content: status } }] } } })
-            })
+            const mid = mp.properties['Discord_ID']?.title[0]?.text.content || ''
+            if (!updatedIds.has(mid)) {
+              UrlFetchApp.fetch(`https://api.notion.com/v1/pages/${mp.id}`, {
+                method: 'patch', headers,
+                payload: JSON.stringify({ properties: { '全勤': { rich_text: [{ text: { content: status } }] } } })
+              })
+              updatedIds.add(mid)
+            }
           }
-        } catch (e) { Logger.log('propagate attendance error: ' + e) }
+        } catch (e) { Logger.log('propagate by email error: ' + e) }
       }
     }
     return { success: true }
