@@ -1,6 +1,6 @@
 // ================================================================
 // 月月繪 Google Apps Script
-// 最後更新：2026-09-16
+// 最後更新：2026-09-21
 // 版本：v45
 // 變更：
 //   - v44：createFolder 補傳 sessionToken（前端修復），補齊所有失敗路徑的 webhook 通知，Unauthorized 自動導向重新登入
@@ -41,6 +41,7 @@
 //   - v35：Profile 資料改存 Notion（期數="profile"），PropertiesService 只當 cache；backfillUserProfiles 改寫 Notion
 //   - v36：新增管理面板（adminPanel HTML）；新增 migrateRootFolder；doGet 開放 backfillUserProfiles / clearTestAccount / migrateRootFolder
 //   - v37：getAllRecords 過濾 profile 紀錄，修復管理員頁面顯示 profile 假期數的問題
+//   - v45：acceptTeamInvite 建檔時繼承隊伍全勤狀態
 // ================================================================
 
 // ── 設定 ────────────────────────────────────────────────────
@@ -2068,6 +2069,12 @@ function acceptTeamInvite(discordId, discordName, discordUsername, period, teamP
       '伺服器暱稱':   { rich_text: [{ text: { content: serverNickname } }] },
       'google帳號':   { rich_text: [{ text: { content: profileEmail } }] }
     }
+    // 繼承隊伍全勤狀態
+    const teamAttendance = teamPage.properties['全勤']?.rich_text[0]?.text.content || ''
+    if (teamAttendance === '全勤') {
+      props['全勤'] = { rich_text: [{ text: { content: '全勤' } }] }
+    }
+
     if (existing.length > 0) {
       UrlFetchApp.fetch(`https://api.notion.com/v1/pages/${existing[0].id}`, {
         method: 'patch', headers, payload: JSON.stringify({ properties: props })

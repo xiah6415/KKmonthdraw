@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { storage } from '../firebase'
@@ -399,6 +399,19 @@ function Admin() {
 
   const recordTotalPages = Math.ceil(filteredRecords.length / PAGE_SIZE)
   const pagedRecords = filteredRecords.slice(recordPage * PAGE_SIZE, (recordPage + 1) * PAGE_SIZE)
+
+  // 隊伍成員 map：key = "期數||隊伍名稱"，value = 該期該隊所有紀錄
+  const teamMembersMap = useMemo(() => {
+    const map = {}
+    allRecords.forEach(r => {
+      if (r.type === '團體' && r.period && r.teamName) {
+        const key = `${r.period}||${r.teamName}`
+        if (!map[key]) map[key] = []
+        map[key].push(r)
+      }
+    })
+    return map
+  }, [allRecords])
 
   const setFilterPeriodAndReset     = (v) => { setFilterPeriod(v);     setRecordPage(0) }
   const setFilterTypeAndReset       = (v) => { setFilterType(v);       setRecordPage(0) }
@@ -1281,6 +1294,22 @@ function Admin() {
                             ? <span className="report-badge--done">✅ 已回報</span>
                             : <span className="report-badge--pending">⏳ 未回報</span>
                           }
+                          {rec.type === '團體' && rec.teamName && (() => {
+                            const members = teamMembersMap[`${rec.period}||${rec.teamName}`] || []
+                            if (members.length <= 1) return null
+                            return members.map(m => (
+                              <span key={m.discordId} style={{
+                                fontSize: 11, padding: '2px 7px', borderRadius: 4,
+                                background: m.reportStatus === '已完成' ? '#eafaf1' : '#fafafa',
+                                border: `1px solid ${m.reportStatus === '已完成' ? '#a8e6c3' : '#e0e0e0'}`,
+                                color: '#555', whiteSpace: 'nowrap'
+                              }} title={m.discordId}>
+                                {m.serverNickname || m.discordName}
+                                {m.reportStatus === '已完成' ? ' ✅' : ' ⏳'}
+                                {m.socialLink ? ' 🔗' : ''}
+                              </span>
+                            ))
+                          })()}
                         </div>
                         {!isEditing && (
                           <button className="btn-edit" onClick={() => startEditRecord(rec)}>編輯</button>
