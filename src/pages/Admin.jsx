@@ -559,9 +559,11 @@ function Admin() {
         params: { action: 'updateAttendanceStatus', discordId: rec.discordId, period: rec.period, status, sessionToken: discordUser?.sessionToken, secret: SECRET }
       })
       if (res.data.success) {
-        setAllRecords(prev => prev.map(r =>
-          r.discordId === rec.discordId && r.period === rec.period ? { ...r, attendanceStatus: status } : r
-        ))
+        setAllRecords(prev => prev.map(r => {
+          if (r.discordId === rec.discordId && r.period === rec.period) return { ...r, attendanceStatus: status }
+          if (rec.type === '團體' && rec.teamName && r.teamName === rec.teamName && r.period === rec.period) return { ...r, attendanceStatus: status }
+          return r
+        }))
       }
     } catch (err) {
       console.error(err)
