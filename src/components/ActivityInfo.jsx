@@ -36,7 +36,10 @@ function ActivityInfo({ startDate, endDate, extendDate, currentPeriod }) {
   if (currentPeriod === '補交期') {
     return (
       <div className="activity-info">
-        <p className="activity-countdown">🎨 現在是補交期，可補交第一期或第二期作業！</p>
+        {startDate && endDate && (
+          <p className="activity-period">📅 補交期間：{startDate} ～ {endDate}</p>
+        )}
+        <p className="activity-countdown">🎨 現在是補交期，可補交一到五期作業！</p>
       </div>
     )
   }
