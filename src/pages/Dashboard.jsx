@@ -822,8 +822,8 @@ function Dashboard() {
                 </div>
               ))}
 
-              {/* 建檔 CTA（開放中且無自己紀錄、無待處理邀請） */}
-              {isOpen && periodOwn.length === 0 && periodInvites.length === 0 && (
+              {/* 建檔 CTA（開放中且無自己紀錄、無待處理邀請；補交期隱藏） */}
+              {isOpen && periodOwn.length === 0 && periodInvites.length === 0 && currentPeriod !== '補交期' && (
                 <div>
                   <div className="cta-banner">
                     <div>
