@@ -1,8 +1,12 @@
 // ================================================================
 // 月月繪 Google Apps Script
-// 最後更新：2026-09-21
-// 版本：v45
+// 最後更新：2026-10-27
+// 版本：v48
 // 變更：
+//   - v48：一到三期 rootFolderId 更新為新根目錄備份子資料夾（完成後已移除 one-shot action）
+//   - v47：ROOT_FOLDER_ID 更新為新共用雲端硬碟根目錄；四五期資料夾搬移完成；補交期日期顯示修復
+//   - v46：補交期開放一到五期補交；補交期日期顯示
+//   - v45：acceptTeamInvite 建檔時繼承隊伍全勤狀態
 //   - v44：createFolder 補傳 sessionToken（前端修復），補齊所有失敗路徑的 webhook 通知，Unauthorized 自動導向重新登入
 //   - v43 舊變更：
 //   - v41【安全修復】外部回報：任何人只要知道別人的 discordId + 前端 API_SECRET（該值會被打包進公開 JS，不算真的機密）
@@ -41,8 +45,7 @@
 //   - v35：Profile 資料改存 Notion（期數="profile"），PropertiesService 只當 cache；backfillUserProfiles 改寫 Notion
 //   - v36：新增管理面板（adminPanel HTML）；新增 migrateRootFolder；doGet 開放 backfillUserProfiles / clearTestAccount / migrateRootFolder
 //   - v37：getAllRecords 過濾 profile 紀錄，修復管理員頁面顯示 profile 假期數的問題
-//   - v45：acceptTeamInvite 建檔時繼承隊伍全勤狀態
-// ================================================================
+// // ================================================================
 
 // ── 設定 ────────────────────────────────────────────────────
 const DISCORD_CLIENT_ID = '1496529238583414886'
