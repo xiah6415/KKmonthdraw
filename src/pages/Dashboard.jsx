@@ -822,13 +822,13 @@ function Dashboard() {
                 </div>
               ))}
 
-              {/* 建檔 CTA（開放中且無自己紀錄、無待處理邀請；補交期隱藏） */}
-              {isOpen && periodOwn.length === 0 && periodInvites.length === 0 && currentPeriod !== '補交期' && (
+              {/* 建檔 CTA（開放中且無自己紀錄、無待處理邀請） */}
+              {isOpen && periodOwn.length === 0 && periodInvites.length === 0 && (
                 <div>
                   <div className="cta-banner">
                     <div>
                       <p className="cta-title">📋 {periodName} 尚未建檔</p>
-                      <p className="cta-sub">快來參加本期月月繪！</p>
+                      <p className="cta-sub">{currentPeriod === '補交期' ? '補交期開放，現在補交建檔！' : '快來參加本期月月繪！'}</p>
                     </div>
                     <button
                       className="cta-btn"
