@@ -1,8 +1,9 @@
 // ================================================================
 // 月月繪 Google Apps Script
-// 最後更新：2026-10-27
-// 版本：v51
+// 最後更新：2026-11-02
+// 版本：v52
 // 變更：
+//   - v52：新增 DATA_FOLDER_ID；登入紀錄/隊伍版/匯出 Sheet 改存新資料資料夾
 //   - v51：第一期 31 個原始資料夾搬至新根目錄備份端，舊複製品清除；一到五期全部進入新根目錄
 //   - v50：第一期備份調查完成（補交期 6 筆在備份端正常）；臨時 action 清除
 //   - v49：二三期孤兒資料夾清除（284個）；Notion 空資料夾連結補齊（69筆）；臨時 action 全清
@@ -54,6 +55,7 @@
 const DISCORD_CLIENT_ID = '1496529238583414886'
 const DISCORD_CLIENT_SECRET = 'j0XeUHrF1Xhxb_HWj-gskrQZShNIf0fC'
 const ROOT_FOLDER_ID = '1iLxpzXNO0UGIkwvJ9mjF53buFjkmDqXA'
+const DATA_FOLDER_ID = '1EvTBJwH-RyRUidgJXXVj6ffM1bb8rmef'  // 登入紀錄/隊伍版/匯出 Sheet 存放處
 const NOTION_TOKEN = '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'
 const NOTION_DATABASE_ID = '34a63b0885958042ad79d27f8abe63e4'
 const API_SECRET = '月月繪2026secret_KK'
@@ -715,7 +717,7 @@ function _getLoginLogSheet() {
     try { ss = SpreadsheetApp.openById(cachedId) } catch (e) { ss = null }
   }
   if (!ss) {
-    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID)
+    const rootFolder = DriveApp.getFolderById(DATA_FOLDER_ID)
     const files = rootFolder.getFilesByName(LOGIN_LOG_SHEET_NAME)
     if (files.hasNext()) {
       ss = SpreadsheetApp.openById(files.next().getId())
@@ -1188,7 +1190,7 @@ function exportToSheet(period, skipScan, preScanned) {
     }
 
     const sheetName = period ? `月月繪名單_${period}` : '月月繪名單_全部'
-    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID)
+    const rootFolder = DriveApp.getFolderById(DATA_FOLDER_ID)
 
     let ss = null
     const files = rootFolder.getFilesByName(sheetName)
@@ -2129,7 +2131,7 @@ function _getSquadSheet() {
     try { ss = SpreadsheetApp.openById(cachedId) } catch (e) { ss = null }
   }
   if (!ss) {
-    const rootFolder = DriveApp.getFolderById(ROOT_FOLDER_ID)
+    const rootFolder = DriveApp.getFolderById(DATA_FOLDER_ID)
     const files = rootFolder.getFilesByName(SQUAD_SHEET_NAME)
     if (files.hasNext()) {
       ss = SpreadsheetApp.openById(files.next().getId())
