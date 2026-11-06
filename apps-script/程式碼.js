@@ -1,8 +1,9 @@
 // ================================================================
 // 月月繪 Google Apps Script
-// 最後更新：2026-11-02
-// 版本：v54
+// 最後更新：2026-11-06
+// 版本：v55
 // 變更：
+//   - v55：新增第六期（2026-11-27 ～ 2026-12-25），Drive 資料夾 ID: 1XACU6pCTw7omThOpkQ_Kyuoq_G_bRib2
 //   - v54：跨雲端硬碟搜尋所有月月繪名單 Sheet 搬至 DATA_FOLDER_ID（一到五期全搬）
 //   - v53：試算表備份資料夾搬至 DATA_FOLDER_ID；臨時 action 清除
 //   - v52：新增 DATA_FOLDER_ID；登入紀錄/隊伍版/匯出 Sheet 改存新資料資料夾
@@ -651,6 +652,42 @@ function doGet(e) {
 
   } else if (action === 'resetMonthlyQuota') {
     return jsonResponse(resetMonthlyQuota())
+
+  } else if (action === 'checkTrash') {
+    if (e.parameter.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
+    // 查帳號垃圾桶（個人 + 共用雲端硬碟分開查）
+    const result = { myDrive: { folders: 0, files: 0 }, sharedDrives: {} }
+    // 個人 My Drive 垃圾桶
+    let pageToken = undefined
+    do {
+      const res = Drive.Files.list({ q: 'trashed=true', fields: 'nextPageToken,files(id,name,mimeType)', pageSize: 100 })
+      for (const f of (res.files || [])) {
+        if (f.mimeType === 'application/vnd.google-apps.folder') result.myDrive.folders++
+        else result.myDrive.files++
+      }
+      pageToken = res.nextPageToken
+    } while (pageToken)
+    // 列出所有共用雲端硬碟
+    const drivesRes = Drive.Drives.list({ pageSize: 20 })
+    for (const drive of (drivesRes.drives || [])) {
+      let folders = 0, files = 0
+      pageToken = undefined
+      do {
+        const res = Drive.Files.list({
+          q: `trashed=true and '${drive.id}' in parents`,
+          driveId: drive.id, includeItemsFromAllDrives: true,
+          supportsAllDrives: true, corpora: 'drive',
+          fields: 'nextPageToken,files(id,mimeType)', pageSize: 100
+        })
+        for (const f of (res.files || [])) {
+          if (f.mimeType === 'application/vnd.google-apps.folder') folders++
+          else files++
+        }
+        pageToken = res.nextPageToken
+      } while (pageToken)
+      if (folders + files > 0) result.sharedDrives[drive.name] = { folders, files }
+    }
+    return jsonResponse(result)
 
   } else {
     return jsonResponse({ error: 'Unknown action' })
