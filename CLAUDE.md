@@ -14,7 +14,7 @@ Discord 社群「KK月月繪」的報名建檔系統。
 | 主站（Firebase） | https://kkmonth.web.app |
 | 備用（GitHub Pages） | https://xiah6415.github.io/KKmonthdraw/ |
 | GitHub | https://github.com/xiah6415/KKmonthdraw |
-| GAS Web App | `https://script.google.com/macros/s/AKfycbyPxgT2-jmdSCeiFXi2CvlGqq9X0w_jdNZ7hFbWCYlfyzjGUS0IgfQUW5dnH7ws_L9g/exec` |
+| GAS Web App | `https://script.google.com/macros/s/AKfycbw29lZZ1uBpSLi5fsT-8tJs0dm3LebMd0BFGXGSoWzezqpnZvLaNHlnt2h7RXVcqiuy/exec` |
 
 ---
 
@@ -36,8 +36,8 @@ Discord 社群「KK月月繪」的報名建檔系統。
 npm run deploy          # = vite build && firebase deploy
 
 # GAS（需先在 apps-script/ 目錄）
-~/.local/bin/clasp push --force
-~/.local/bin/clasp deploy -i AKfycbyPxgT2-jmdSCeiFXi2CvlGqq9X0w_jdNZ7hFbWCYlfyzjGUS0IgfQUW5dnH7ws_L9g
+cd /tmp/kkmonth-new && ~/.local/bin/clasp push --force
+cd /tmp/kkmonth-new && ~/.local/bin/clasp deploy -i AKfycbw29lZZ1uBpSLi5fsT-8tJs0dm3LebMd0BFGXGSoWzezqpnZvLaNHlnt2h7RXVcqiuy
 
 # GitHub push 自動觸發 GitHub Pages 部署
 git push
@@ -52,11 +52,11 @@ git push
 
 | 常數 | 值 | 說明 |
 |---|---|---|
-| `ROOT_FOLDER_ID` | `1iLxpzXNO0UGIkwvJ9mjF53buFjkmDqXA` | 主根目錄（登入紀錄/隊伍 Sheet 存放處） |
+| `ROOT_FOLDER_ID` | `1GZ-ncCHasg1o0HYsFGtLYJ_JkYCGdNaE` | 個人雲端主根目錄（2026-11-09 從 KrenzArtwork 共用硬碟搬移） |
 | `API_SECRET` | `月月繪2026secret_KK` | 前端 API 呼叫用（已知可被 bundle 取出，屬接受風險） |
 | `SESSION_SECRET` | （見程式碼） | 後端 HMAC 簽章，絕不可出現在前端 |
 | `NOTION_DATABASE_ID` | `34a63b0885958042ad79d27f8abe63e4` | |
-| `GAS Script ID` | `114lCsxm0NppFUI3N_95uW4zdDyjGHA69S2BBZMJK5D4HUV0ymjuFtXif` | |
+| `GAS Script ID` | `1pZjrvDDtpmIUGN8PfLCBHD4WYmZw1zamos_p46n88ZgvR7JuQtTnJotv` | （新 xiah6415tw 帳號，舊 ID: 114lCsxm0NppFUI3N...） |
 
 ---
 
@@ -125,7 +125,7 @@ cd /Users/suyan/資料儲存/04-開發專案/KKmonthdraw
 
 ## 當前版本
 
-- **GAS**：v47 @110（2026-10-27）
+- **GAS**：v57 @4（2026-11-09，新帳號 xiah6415tw@gmail.com）
 - **前端**：commit `efcfdef`
 
 ---

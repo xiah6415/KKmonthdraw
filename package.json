@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "gas:check": "node scripts/gas-check.mjs",
+    "gas:status": "clasp status",
     "deploy": "vite build && firebase deploy",
     "deploy:github": "vite build --mode github && npx gh-pages -d dist"
   },

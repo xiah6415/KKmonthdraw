@@ -13,33 +13,47 @@ const steps = [
   },
   {
     icon: '2',
-    title: '填寫報名資料',
+    title: '建立個人資料',
     content: (
       <>
+        <p>第一次登入會進入報名頁，填寫以下資料：</p>
         <div className="help-field">
           <span className="help-field-label">💬 伺服器暱稱</span>
           <span className="help-field-desc">填入你在 Discord 伺服器裡的暱稱（顯示名稱）。</span>
         </div>
         <div className="help-field">
-          <span className="help-field-label">🎨 參加類型</span>
-          <span className="help-field-desc">
-            選擇「個人」或「團體」。<br />
-            選擇團體時需額外填入隊伍名稱。
-          </span>
+          <span className="help-field-label">📧 Google 帳號（Gmail）</span>
+          <span className="help-field-desc">填入你的 Gmail，用於後續取得 Google 雲端資料夾的存取權限。</span>
         </div>
-        <div className="help-field">
-          <span className="help-field-label">📧 Google 帳號</span>
-          <span className="help-field-desc">
-            填入你的 Gmail，系統會將作品上傳資料夾的編輯權限分享給這個帳號。<br />
-            團體參加者可新增多位隊員的帳號。
-          </span>
-        </div>
-        <p className="help-tip">填完後點擊「送出建檔」，成功後會顯示你的 Google 資料夾連結。</p>
+        <p className="help-tip">填完送出後，下次登入會直接進 Dashboard，不需要重複填寫。</p>
       </>
     )
   },
   {
     icon: '3',
+    title: '建立本期資料夾',
+    content: (
+      <>
+        <p>進入 Dashboard 後，若本期尚未建檔，上方會出現建檔提示，點擊「立即建檔」。</p>
+        <div className="help-field">
+          <span className="help-field-label">🎨 參加類型</span>
+          <span className="help-field-desc">
+            選擇「個人」或「團體」。<br />
+            選擇團體時需填入隊伍名稱。
+          </span>
+        </div>
+        <div className="help-field">
+          <span className="help-field-label">👥 團體隊員邀請</span>
+          <span className="help-field-desc">
+            隊長在建檔時填入隊員的 Gmail，對方登入後 Dashboard 會出現邀請卡，同意後即加入隊伍紀錄。
+          </span>
+        </div>
+        <p className="help-tip">建檔成功後系統會自動建立 Google 雲端資料夾，並將存取權限分享給你的 Gmail。</p>
+      </>
+    )
+  },
+  {
+    icon: '4',
     title: '上傳作品',
     content: (
       <>
@@ -49,7 +63,7 @@ const steps = [
     )
   },
   {
-    icon: '4',
+    icon: '5',
     title: '回報完成上傳',
     content: (
       <>
@@ -62,13 +76,17 @@ const steps = [
           <span className="help-field-label">↩️ 取消回報</span>
           <span className="help-field-desc">若不小心誤按，可點旁邊的「取消」按鈕撤銷回報狀態。</span>
         </div>
+        <div className="help-field">
+          <span className="help-field-label">🔗 社群打卡連結</span>
+          <span className="help-field-desc">可選填社群平台的貼文連結（Twitter/X、Instagram 等），填入後管理員可在後台直接查看。</span>
+        </div>
         <p className="help-tip">回報狀態會同步顯示在管理員後台，讓管理員掌握上傳進度。</p>
       </>
     )
   },
   {
-    icon: '5',
-    title: 'Dashboard 功能',
+    icon: '6',
+    title: 'Dashboard 其他功能',
     content: (
       <>
         <div className="help-field">
@@ -80,16 +98,12 @@ const steps = [
           <span className="help-field-desc">登入後可查看你每一期的建檔紀錄與資料夾連結。</span>
         </div>
         <div className="help-field">
-          <span className="help-field-label">✏️ 修改 Google 帳號</span>
-          <span className="help-field-desc">每筆紀錄右上角有「編輯」按鈕，可以更新 Google 帳號。</span>
+          <span className="help-field-label">✏️ 修改資料</span>
+          <span className="help-field-desc">紀錄卡片上有「編輯」按鈕，可修改伺服器暱稱及 Google 帳號。</span>
         </div>
         <div className="help-field">
-          <span className="help-field-label">📋 本期尚未建檔</span>
-          <span className="help-field-desc">若新的一期已開始，Dashboard 上方會出現提示，點擊「立即建檔」即可報名。</span>
-        </div>
-        <div className="help-field">
-          <span className="help-field-label">🏅 歷期全勤狀態</span>
-          <span className="help-field-desc">過去期數的紀錄卡片會顯示全勤結果：✅ 全勤、⚠️ 未全勤、✅ 有完成（已回報）或 🎨 有參加。</span>
+          <span className="help-field-label">🏅 獎章冊</span>
+          <span className="help-field-desc">每期全勤的參加者可獲得對應徽章，展示在 Dashboard 獎章冊區塊，點擊可放大查看。</span>
         </div>
         <div className="help-field">
           <span className="help-field-label">👥 認領歷史隊伍紀錄</span>
@@ -98,6 +112,24 @@ const steps = [
             選擇期數 → 搜尋隊伍名稱 → 點「認領」，即可在個人紀錄中新增該期參加紀錄。
           </span>
         </div>
+      </>
+    )
+  },
+  {
+    icon: '🎨',
+    title: '隊伍徵求版',
+    content: (
+      <>
+        <p>找隊友或招募隊員可使用導覽列的「隊伍徵求版」。</p>
+        <div className="help-field">
+          <span className="help-field-label">👤 個人找隊</span>
+          <span className="help-field-desc">個人參加者發文表示正在尋找隊伍，其他人可透過 Discord 隊伍徵求串聯絡。</span>
+        </div>
+        <div className="help-field">
+          <span className="help-field-label">👥 隊伍缺人</span>
+          <span className="help-field-desc">已組隊但人數不足的隊伍發文招募，可填寫徵求人數（1–3 人）。</span>
+        </div>
+        <p className="help-tip">找到隊友後請回到 Discord 隊伍徵求串與對方聯繫，完成組隊後再到系統建檔。</p>
       </>
     )
   }
@@ -110,7 +142,7 @@ const faqs = [
   },
   {
     q: 'Google 帳號填錯了怎麼辦？',
-    a: '到 Dashboard 找到該期紀錄，點擊右上角「編輯」按鈕即可修改 Google 帳號。'
+    a: '到 Dashboard 找到該期紀錄，點擊「編輯」按鈕即可修改 Google 帳號。'
   },
   {
     q: '資料夾看不到、無法編輯怎麼辦？',
@@ -118,7 +150,11 @@ const faqs = [
   },
   {
     q: '個人和團體的差別？',
-    a: '個人建立一個屬於自己的資料夾。團體則以隊伍名稱建立，可以新增多位隊員的 Google 帳號，讓所有人都能存取同一個資料夾。'
+    a: '個人建立一個屬於自己的資料夾。團體以隊伍名稱建立，隊長可邀請隊員（填入對方 Gmail），對方同意後可共同存取同一個資料夾。'
+  },
+  {
+    q: '隊員收到邀請但不想加入怎麼辦？',
+    a: '在 Dashboard 的邀請卡上點擊「拒絕」即可。拒絕後該邀請不會再出現。'
   },
   {
     q: '已上傳作業後可以取消嗎？',

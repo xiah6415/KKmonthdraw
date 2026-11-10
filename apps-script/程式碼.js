@@ -1,8 +1,9 @@
 // ================================================================
 // 月月繪 Google Apps Script
 // 最後更新：2026-11-06
-// 版本：v55
+// 版本：v56
 // 變更：
+//   - v56：新增 migrateToPersonalDrive（搬移全部資料到個人雲端，離職備份用）
 //   - v55：新增第六期（2026-11-27 ～ 2026-12-25），Drive 資料夾 ID: 1XACU6pCTw7omThOpkQ_Kyuoq_G_bRib2
 //   - v54：跨雲端硬碟搜尋所有月月繪名單 Sheet 搬至 DATA_FOLDER_ID（一到五期全搬）
 //   - v53：試算表備份資料夾搬至 DATA_FOLDER_ID；臨時 action 清除
@@ -653,6 +654,11 @@ function doGet(e) {
   } else if (action === 'resetMonthlyQuota') {
     return jsonResponse(resetMonthlyQuota())
 
+  } else if (action === 'exportProperties') {
+    if (e.parameter.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
+    const props = PropertiesService.getScriptProperties().getProperties()
+    return jsonResponse({ success: true, properties: props })
+
   } else if (action === 'checkTrash') {
     if (e.parameter.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
     // 查帳號垃圾桶（個人 + 共用雲端硬碟分開查）
@@ -688,6 +694,10 @@ function doGet(e) {
       if (folders + files > 0) result.sharedDrives[drive.name] = { folders, files }
     }
     return jsonResponse(result)
+
+  } else if (action === 'migrateToPersonalDrive') {
+    if (e.parameter.secret !== API_SECRET) return jsonResponse({ error: 'Unauthorized' })
+    return jsonResponse(migrateToPersonalDrive())
 
   } else {
     return jsonResponse({ error: 'Unknown action' })
@@ -1733,6 +1743,67 @@ function migrateRootFolder(newRootFolderId) {
     return { success: true, moved, note: '資料夾 ID 不變，Notion 連結依然有效。請手動更新 GAS 程式碼中的 ROOT_FOLDER_ID 後重新部署。' }
   } catch (err) {
     return { success: false, error: err.toString() }
+  }
+}
+
+// ── 搬移全部資料到個人雲端（離職備份用，one-shot）────────────────
+function migrateToPersonalDrive() {
+  const DEST_ID = '1GZ-ncCHasg1o0HYsFGtLYJ_JkYCGdNaE'
+  const moved = [], failed = []
+
+  function moveItem(itemId, oldParentId) {
+    try {
+      Drive.Files.update({}, itemId, null, {
+        addParents: DEST_ID,
+        removeParents: oldParentId,
+        supportsAllDrives: true,
+        fields: 'id,name'
+      })
+      moved.push(itemId)
+    } catch (err) {
+      failed.push({ id: itemId, error: err.toString() })
+    }
+  }
+
+  // 1. 把 ROOT_FOLDER_ID 底下所有子資料夾/檔案搬到 DEST
+  try {
+    const res = Drive.Files.list({
+      q: `'${ROOT_FOLDER_ID}' in parents and trashed=false`,
+      fields: 'files(id,name,mimeType)',
+      includeItemsFromAllDrives: true,
+      supportsAllDrives: true,
+      pageSize: 200
+    })
+    for (const f of (res.files || [])) {
+      moveItem(f.id, ROOT_FOLDER_ID)
+    }
+  } catch (err) {
+    return { success: false, error: 'ROOT 列舉失敗: ' + err.toString() }
+  }
+
+  // 2. 把 DATA_FOLDER_ID 本身也搬過去（如果不在 ROOT 底下）
+  if (DATA_FOLDER_ID && DATA_FOLDER_ID !== ROOT_FOLDER_ID) {
+    // 找 DATA 的父資料夾
+    try {
+      const dataFile = Drive.Files.get(DATA_FOLDER_ID, {
+        fields: 'id,name,parents',
+        supportsAllDrives: true
+      })
+      const oldParent = (dataFile.parents || [])[0] || ROOT_FOLDER_ID
+      if (oldParent !== DEST_ID) {
+        moveItem(DATA_FOLDER_ID, oldParent)
+      }
+    } catch (err) {
+      failed.push({ id: DATA_FOLDER_ID, error: 'DATA 搬移失敗: ' + err.toString() })
+    }
+  }
+
+  return {
+    success: failed.length === 0,
+    moved: moved.length,
+    movedIds: moved,
+    failed,
+    note: '資料夾 ID 不變，Notion 連結依然有效。搬移後請更新 GAS 程式碼的 ROOT_FOLDER_ID / DATA_FOLDER_ID 再重新部署。'
   }
 }
 

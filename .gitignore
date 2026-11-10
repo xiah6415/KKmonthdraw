@@ -25,3 +25,6 @@ dist-ssr
 *.sln
 *.sw?
 gas.txt
+appsscript.json
+程式碼.js
+apps-script-new/
