@@ -8,7 +8,7 @@ const SECRET = import.meta.env.VITE_API_SECRET
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
 // ── 電子集章冊 ─────────────────────────────────────────────────
-const STAMP_TEMPLATE_URL = '/stampbook-template.png'
+const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 // Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
 // 以下座標若位置不對，調整 cx/cy/x/y 即可
 const STAMP_CONFIG = {
