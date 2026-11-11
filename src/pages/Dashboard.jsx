@@ -38,7 +38,7 @@ async function loadImg(src) {
 }
 
 // 將圖片的純黑背景像素改為透明
-function removeBlackBg(img, threshold = 30) {
+function removeBlackBg(img, threshold = 8) {
   const oc = document.createElement('canvas')
   oc.width = img.naturalWidth
   oc.height = img.naturalHeight
