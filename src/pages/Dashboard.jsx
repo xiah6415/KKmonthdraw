@@ -12,7 +12,7 @@ const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 // Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
 // 以下座標若位置不對，調整 cx/cy/x/y 即可
 const STAMP_CONFIG = {
-  nickname: { x: 865, y: 258, fontSize: 68, color: '#1a1a1a' },
+  nickname: { x: 1720, y: 360, fontSize: 68, color: '#1a1a1a' },
   slots: [
     { period: '第一期', cx: 894,  cy: 836,  size: 480 },
     { period: '第二期', cx: 1586, cy: 820,  size: 480 },
@@ -34,6 +34,24 @@ async function loadImg(src) {
     img.onerror = (e) => { URL.revokeObjectURL(url); reject(e) }
     img.src = url
   })
+}
+
+// 將圖片的純黑背景像素改為透明
+function removeBlackBg(img, threshold = 30) {
+  const oc = document.createElement('canvas')
+  oc.width = img.naturalWidth
+  oc.height = img.naturalHeight
+  const ctx = oc.getContext('2d')
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, oc.width, oc.height)
+  const d = data.data
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] < threshold && d[i + 1] < threshold && d[i + 2] < threshold) {
+      d[i + 3] = 0
+    }
+  }
+  ctx.putImageData(data, 0, 0)
+  return oc
 }
 
 function Dashboard() {
@@ -258,8 +276,9 @@ function Dashboard() {
         if (!badgeUrl) continue
         try {
           const img = await loadImg(badgeUrl)
+          const badgeCanvas = removeBlackBg(img)
           const half = slot.size / 2
-          ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
+          ctx.drawImage(badgeCanvas, slot.cx - half, slot.cy - half, slot.size, slot.size)
         } catch (e) {
           console.error(`[集章冊] ${slot.period} 載入失敗:`, e)
         }
@@ -269,7 +288,7 @@ function Dashboard() {
       if (nickname) {
         ctx.font = `bold ${STAMP_CONFIG.nickname.fontSize}px "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`
         ctx.fillStyle = STAMP_CONFIG.nickname.color
-        ctx.textBaseline = 'middle'
+        ctx.textBaseline = 'alphabetic'
         ctx.fillText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
       }
 
