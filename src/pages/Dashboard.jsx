@@ -12,7 +12,7 @@ const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 // Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
 // 以下座標若位置不對，調整 cx/cy/x/y 即可
 const STAMP_CONFIG = {
-  nickname: { x: 1720, y: 360, fontSize: 68, color: '#1a1a1a' },
+  nickname: { x: 1760, y: 342, fontSize: 68, color: '#1a1a1a' },
   slots: [
     { period: '第一期', cx: 894,  cy: 836,  size: 480 },
     { period: '第二期', cx: 1586, cy: 820,  size: 480 },
