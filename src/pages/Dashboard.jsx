@@ -7,6 +7,32 @@ const API_URL = import.meta.env.VITE_APPS_SCRIPT_URL
 const SECRET = import.meta.env.VITE_API_SECRET
 const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 
+// ── 電子集章冊 ─────────────────────────────────────────────────
+const STAMP_TEMPLATE_URL = '/stampbook-template.png'
+// Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
+// 以下座標若位置不對，調整 cx/cy/x/y 即可
+const STAMP_CONFIG = {
+  nickname: { x: 1210, y: 188, fontSize: 68, color: '#1a1a1a' },
+  slots: [
+    { period: '第一期', cx: 912,  cy: 820,  size: 700 },
+    { period: '第二期', cx: 1618, cy: 820,  size: 700 },
+    { period: '第三期', cx: 2328, cy: 820,  size: 700 },
+    { period: '第四期', cx: 912,  cy: 1600, size: 700 },
+    { period: '第五期', cx: 1618, cy: 1600, size: 700 },
+    { period: '第六期', cx: 2328, cy: 1600, size: 700 },
+  ]
+}
+
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 function Dashboard() {
   const [records, setRecords] = useState([])
   const [discordUser, setDiscordUser] = useState(null)
@@ -58,6 +84,8 @@ function Dashboard() {
   const [profileEmailEditing, setProfileEmailEditing] = useState(false)
   // userInfo (nickname/type/teamName)
   const [userInfo, setUserInfo] = useState(null)
+  // 電子集章冊下載
+  const [stampDownloading, setStampDownloading] = useState(false)
   // inline 建檔
   const [buildingPeriod, setBuildingPeriod] = useState(null)
   const [buildNickname, setBuildNickname] = useState('')
@@ -205,6 +233,55 @@ function Dashboard() {
 
   const openPeriods = allPeriods.filter(p => p.open)
   const isActiveRecord = (record) => openPeriods.some(p => p.name === record.period)
+
+  // ── 電子集章冊下載 ────────────────────────────────────
+  const downloadStampBook = async () => {
+    setStampDownloading(true)
+    try {
+      const W = 3200, H = 2200
+      const canvas = document.createElement('canvas')
+      canvas.width = W
+      canvas.height = H
+      const ctx = canvas.getContext('2d')
+
+      const template = await loadImg(STAMP_TEMPLATE_URL)
+      ctx.drawImage(template, 0, 0, W, H)
+
+      for (const slot of STAMP_CONFIG.slots) {
+        const period = allPeriods.find(p => p.name === slot.period)
+        const rec = records.find(r => r.period === slot.period)
+        if (!rec || rec.attendanceStatus !== '全勤' || !period) continue
+        const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
+        if (!badgeUrl) continue
+        try {
+          const img = await loadImg(badgeUrl)
+          const half = slot.size / 2
+          ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
+        } catch {}
+      }
+
+      const nickname = userInfo?.nickname || discordUser?.global_name || discordUser?.username || ''
+      if (nickname) {
+        ctx.font = `bold ${STAMP_CONFIG.nickname.fontSize}px "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`
+        ctx.fillStyle = STAMP_CONFIG.nickname.color
+        ctx.textBaseline = 'middle'
+        ctx.fillText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
+      }
+
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `月月繪集章冊_${nickname || 'user'}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    } catch (err) {
+      alert('下載失敗：' + err.message)
+    } finally {
+      setStampDownloading(false)
+    }
+  }
 
   // ── 編輯 Google 帳號 ──────────────────────────────────
   const startEdit = (index) => {
@@ -1290,6 +1367,25 @@ function Dashboard() {
               )
             })}
           </div>
+          {allPeriods.some(p => p.name === '第六期') && (
+            <div style={{ marginTop: 14, borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
+                📖 電子集章冊：已獲得全勤的期數獎章將自動貼入，暱稱也會一起印上
+              </p>
+              <button
+                onClick={downloadStampBook}
+                disabled={stampDownloading}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: 'none',
+                  background: stampDownloading ? '#ccc' : '#5865F2',
+                  color: 'white', fontSize: 13, fontWeight: 'bold',
+                  cursor: stampDownloading ? 'default' : 'pointer',
+                }}
+              >
+                {stampDownloading ? '產生中…' : '⬇ 下載集章冊 PNG'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
