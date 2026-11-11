@@ -288,7 +288,7 @@ function Dashboard() {
         const img = slotImgs[i]
         if (!img) return
         const half = slot.size / 2
-        const src = isFullAttendance ? removeBlackBg(img) : img
+        const src = img
         ctx.drawImage(src, slot.cx - half, slot.cy - half, slot.size, slot.size)
       })
 
