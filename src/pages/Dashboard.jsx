@@ -14,22 +14,25 @@ const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 const STAMP_CONFIG = {
   nickname: { x: 1210, y: 188, fontSize: 68, color: '#1a1a1a' },
   slots: [
-    { period: '第一期', cx: 912,  cy: 820,  size: 700 },
-    { period: '第二期', cx: 1618, cy: 820,  size: 700 },
-    { period: '第三期', cx: 2328, cy: 820,  size: 700 },
-    { period: '第四期', cx: 912,  cy: 1600, size: 700 },
-    { period: '第五期', cx: 1618, cy: 1600, size: 700 },
-    { period: '第六期', cx: 2328, cy: 1600, size: 700 },
+    { period: '第一期', cx: 894,  cy: 836,  size: 480 },
+    { period: '第二期', cx: 1586, cy: 820,  size: 480 },
+    { period: '第三期', cx: 2284, cy: 835,  size: 480 },
+    { period: '第四期', cx: 869,  cy: 1533, size: 480 },
+    { period: '第五期', cx: 1595, cy: 1529, size: 480 },
+    { period: '第六期', cx: 2284, cy: 1530, size: 480 },
   ]
 }
 
-function loadImg(src) {
+async function loadImg(src) {
+  // fetch+blob 避免 canvas taint（crossOrigin 在 Firebase Storage 會被擋）
+  const res = await fetch(src)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e) }
+    img.src = url
   })
 }
 
@@ -1367,25 +1370,7 @@ function Dashboard() {
               )
             })}
           </div>
-          {allPeriods.some(p => p.name === '第六期') && (
-            <div style={{ marginTop: 14, borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
-              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
-                📖 電子集章冊：已獲得全勤的期數獎章將自動貼入，暱稱也會一起印上
-              </p>
-              <button
-                onClick={downloadStampBook}
-                disabled={stampDownloading}
-                style={{
-                  padding: '8px 18px', borderRadius: 8, border: 'none',
-                  background: stampDownloading ? '#ccc' : '#5865F2',
-                  color: 'white', fontSize: 13, fontWeight: 'bold',
-                  cursor: stampDownloading ? 'default' : 'pointer',
-                }}
-              >
-                {stampDownloading ? '產生中…' : '⬇ 下載集章冊 PNG'}
-              </button>
-            </div>
-          )}
+          {/* 集章冊下載：測試通過後再開放 */}
         </div>
       )}
 
