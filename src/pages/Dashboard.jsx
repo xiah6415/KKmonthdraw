@@ -11,15 +11,16 @@ const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI
 const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 // Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
 // 以下座標若位置不對，調整 cx/cy/x/y 即可
+const SHADOW_BASE = `${import.meta.env.BASE_URL}shadows/`
 const STAMP_CONFIG = {
-  nickname: { x: 1760, y: 342, fontSize: 68, color: '#1a1a1a' },
+  nickname: { x: 1790, y: 326, fontSize: 68, color: '#1a1a1a' },
   slots: [
-    { period: '第一期', cx: 894,  cy: 836,  size: 480 },
-    { period: '第二期', cx: 1586, cy: 820,  size: 480 },
-    { period: '第三期', cx: 2284, cy: 835,  size: 480 },
-    { period: '第四期', cx: 869,  cy: 1533, size: 480 },
-    { period: '第五期', cx: 1595, cy: 1529, size: 480 },
-    { period: '第六期', cx: 2284, cy: 1530, size: 480 },
+    { period: '第一期', cx: 894,  cy: 836,  size: 480, shadowUrl: `${SHADOW_BASE}shadow-1.png` },
+    { period: '第二期', cx: 1586, cy: 820,  size: 480, shadowUrl: `${SHADOW_BASE}shadow-2.png` },
+    { period: '第三期', cx: 2284, cy: 835,  size: 480, shadowUrl: `${SHADOW_BASE}shadow-3.png` },
+    { period: '第四期', cx: 869,  cy: 1533, size: 480, shadowUrl: `${SHADOW_BASE}shadow-4.png` },
+    { period: '第五期', cx: 1595, cy: 1529, size: 480, shadowUrl: `${SHADOW_BASE}shadow-5.png` },
+    { period: '第六期', cx: 2284, cy: 1530, size: 480, shadowUrl: null },
   ]
 }
 
@@ -271,16 +272,26 @@ function Dashboard() {
       for (const slot of STAMP_CONFIG.slots) {
         const period = allPeriods.find(p => p.name === slot.period)
         const rec = records.find(r => r.period === slot.period)
-        if (!rec || rec.attendanceStatus !== '全勤' || !period) continue
-        const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
-        if (!badgeUrl) continue
-        try {
-          const img = await loadImg(badgeUrl)
-          const badgeCanvas = removeBlackBg(img)
-          const half = slot.size / 2
-          ctx.drawImage(badgeCanvas, slot.cx - half, slot.cy - half, slot.size, slot.size)
-        } catch (e) {
-          console.error(`[集章冊] ${slot.period} 載入失敗:`, e)
+        const isFullAttendance = rec && rec.attendanceStatus === '全勤' && period
+        const half = slot.size / 2
+        if (isFullAttendance) {
+          const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
+          if (badgeUrl) {
+            try {
+              const img = await loadImg(badgeUrl)
+              const badgeCanvas = removeBlackBg(img)
+              ctx.drawImage(badgeCanvas, slot.cx - half, slot.cy - half, slot.size, slot.size)
+            } catch (e) {
+              console.error(`[集章冊] ${slot.period} 彩色章載入失敗:`, e)
+            }
+          }
+        } else if (slot.shadowUrl) {
+          try {
+            const img = await loadImg(slot.shadowUrl)
+            ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
+          } catch (e) {
+            console.error(`[集章冊] ${slot.period} 黑影載入失敗:`, e)
+          }
         }
       }
 
