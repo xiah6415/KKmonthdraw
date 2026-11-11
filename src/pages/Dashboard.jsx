@@ -266,34 +266,31 @@ function Dashboard() {
       canvas.height = H
       const ctx = canvas.getContext('2d')
 
-      const template = await loadImg(STAMP_TEMPLATE_URL)
-      ctx.drawImage(template, 0, 0, W, H)
-
-      for (const slot of STAMP_CONFIG.slots) {
+      // 平行載入底圖 + 所有格子圖片
+      const slotMeta = STAMP_CONFIG.slots.map(slot => {
         const period = allPeriods.find(p => p.name === slot.period)
         const rec = records.find(r => r.period === slot.period)
         const isFullAttendance = rec && rec.attendanceStatus === '全勤' && period
+        const url = isFullAttendance
+          ? (rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl)
+          : slot.shadowUrl
+        return { slot, url, isFullAttendance }
+      })
+
+      const [template, ...slotImgs] = await Promise.all([
+        loadImg(STAMP_TEMPLATE_URL),
+        ...slotMeta.map(({ url }) => url ? loadImg(url).catch(() => null) : Promise.resolve(null))
+      ])
+
+      ctx.drawImage(template, 0, 0, W, H)
+
+      slotMeta.forEach(({ slot, isFullAttendance }, i) => {
+        const img = slotImgs[i]
+        if (!img) return
         const half = slot.size / 2
-        if (isFullAttendance) {
-          const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
-          if (badgeUrl) {
-            try {
-              const img = await loadImg(badgeUrl)
-              const badgeCanvas = removeBlackBg(img)
-              ctx.drawImage(badgeCanvas, slot.cx - half, slot.cy - half, slot.size, slot.size)
-            } catch (e) {
-              console.error(`[集章冊] ${slot.period} 彩色章載入失敗:`, e)
-            }
-          }
-        } else if (slot.shadowUrl) {
-          try {
-            const img = await loadImg(slot.shadowUrl)
-            ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
-          } catch (e) {
-            console.error(`[集章冊] ${slot.period} 黑影載入失敗:`, e)
-          }
-        }
-      }
+        const src = isFullAttendance ? removeBlackBg(img) : img
+        ctx.drawImage(src, slot.cx - half, slot.cy - half, slot.size, slot.size)
+      })
 
       const nickname = userInfo?.nickname || discordUser?.global_name || discordUser?.username || ''
       if (nickname) {
