@@ -209,6 +209,22 @@ function Admin() {
     } catch { /* silent */ }
   }
 
+  // ── 徽章轉 WebP（保留透明）─────────────────────────────
+  const convertBadgeToWebP = (file) => new Promise((resolve) => {
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width; canvas.height = img.height
+        canvas.getContext('2d').drawImage(img, 0, 0)
+        canvas.toBlob(resolve, 'image/webp', 0.92)
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+
   // ── 封面圖上傳 ─────────────────────────────────────────
   const compressImage = (file) => new Promise((resolve) => {
     const img = new Image()
@@ -271,10 +287,10 @@ function Admin() {
     setBadgeUploading(type)
     setBadgeMsg(null)
     try {
-      const compressed = await compressImage(file)
+      const compressed = await convertBadgeToWebP(file)
       const safeName = editPeriod.name.trim().replace(/[/\\]/g, '_') || 'unnamed'
       const storageRef = ref(storage, `badges/${safeName}_${type}`)
-      await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000' })
+      await uploadBytes(storageRef, compressed, { contentType: 'image/webp', cacheControl: 'public, max-age=31536000' })
       const url = await getDownloadURL(storageRef)
       const newPeriod = { ...editPeriod, [field]: url }
       const updated = periods.map(p => p.name === selectedPeriodName ? newPeriod : p)
