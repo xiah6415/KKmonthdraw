@@ -298,8 +298,12 @@ function Dashboard() {
       const nickname = userInfo?.nickname || discordUser?.global_name || discordUser?.username || ''
       if (nickname) {
         ctx.font = `bold ${STAMP_CONFIG.nickname.fontSize}px "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif`
-        ctx.fillStyle = STAMP_CONFIG.nickname.color
         ctx.textBaseline = 'alphabetic'
+        ctx.lineJoin = 'round'
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+        ctx.lineWidth = 10
+        ctx.strokeText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
+        ctx.fillStyle = STAMP_CONFIG.nickname.color
         ctx.fillText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
       }
 
