@@ -12,7 +12,7 @@ const STAMP_TEMPLATE_URL = `${import.meta.env.BASE_URL}stampbook-template.png`
 // Canvas 大小 = 3200×2200（原始圖 6400×4400 縮 50%）
 // 以下座標若位置不對，調整 cx/cy/x/y 即可
 const STAMP_CONFIG = {
-  nickname: { x: 1210, y: 188, fontSize: 68, color: '#1a1a1a' },
+  nickname: { x: 865, y: 258, fontSize: 68, color: '#1a1a1a' },
   slots: [
     { period: '第一期', cx: 894,  cy: 836,  size: 480 },
     { period: '第二期', cx: 1586, cy: 820,  size: 480 },
@@ -253,16 +253,13 @@ function Dashboard() {
       for (const slot of STAMP_CONFIG.slots) {
         const period = allPeriods.find(p => p.name === slot.period)
         const rec = records.find(r => r.period === slot.period)
-        console.log(`[集章冊] ${slot.period}: rec=`, rec?.attendanceStatus, 'type=', rec?.type, 'period=', !!period)
         if (!rec || rec.attendanceStatus !== '全勤' || !period) continue
         const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
-        console.log(`[集章冊] ${slot.period} badgeUrl=`, badgeUrl)
         if (!badgeUrl) continue
         try {
           const img = await loadImg(badgeUrl)
           const half = slot.size / 2
           ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
-          console.log(`[集章冊] ${slot.period} 壓章成功`)
         } catch (e) {
           console.error(`[集章冊] ${slot.period} 載入失敗:`, e)
         }
