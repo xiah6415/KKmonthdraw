@@ -298,7 +298,7 @@ function Dashboard() {
         ctx.textBaseline = 'alphabetic'
         ctx.lineJoin = 'round'
         ctx.strokeStyle = 'rgba(255,255,255,0.9)'
-        ctx.lineWidth = 10
+        ctx.lineWidth = 12
         ctx.strokeText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
         ctx.fillStyle = STAMP_CONFIG.nickname.color
         ctx.fillText(nickname, STAMP_CONFIG.nickname.x, STAMP_CONFIG.nickname.y)
