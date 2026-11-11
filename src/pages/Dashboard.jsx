@@ -1370,7 +1370,25 @@ function Dashboard() {
               )
             })}
           </div>
-          {/* 集章冊下載：測試通過後再開放 */}
+          {allPeriods.some(p => p.name === '第六期') && (
+            <div style={{ marginTop: 14, borderTop: '1px solid #f0f0f0', paddingTop: 14 }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
+                📖 電子集章冊：已獲得全勤的期數獎章將自動貼入，暱稱也會一起印上
+              </p>
+              <button
+                onClick={downloadStampBook}
+                disabled={stampDownloading}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: 'none',
+                  background: stampDownloading ? '#ccc' : '#5865F2',
+                  color: 'white', fontSize: 13, fontWeight: 'bold',
+                  cursor: stampDownloading ? 'default' : 'pointer',
+                }}
+              >
+                {stampDownloading ? '產生中…' : '⬇ 下載集章冊 PNG'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
