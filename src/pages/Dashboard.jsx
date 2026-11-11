@@ -253,14 +253,19 @@ function Dashboard() {
       for (const slot of STAMP_CONFIG.slots) {
         const period = allPeriods.find(p => p.name === slot.period)
         const rec = records.find(r => r.period === slot.period)
+        console.log(`[集章冊] ${slot.period}: rec=`, rec?.attendanceStatus, 'type=', rec?.type, 'period=', !!period)
         if (!rec || rec.attendanceStatus !== '全勤' || !period) continue
         const badgeUrl = rec.type === '個人' ? period.badgeIndividualUrl : period.badgeTeamUrl
+        console.log(`[集章冊] ${slot.period} badgeUrl=`, badgeUrl)
         if (!badgeUrl) continue
         try {
           const img = await loadImg(badgeUrl)
           const half = slot.size / 2
           ctx.drawImage(img, slot.cx - half, slot.cy - half, slot.size, slot.size)
-        } catch {}
+          console.log(`[集章冊] ${slot.period} 壓章成功`)
+        } catch (e) {
+          console.error(`[集章冊] ${slot.period} 載入失敗:`, e)
+        }
       }
 
       const nickname = userInfo?.nickname || discordUser?.global_name || discordUser?.username || ''
